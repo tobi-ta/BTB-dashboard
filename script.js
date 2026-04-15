@@ -1,3 +1,15 @@
+// Auth guard - redirect to login if not authenticated
+if (localStorage.getItem("btb_logged_in") !== "true") {
+  window.location.href = "index.html";
+}
+
+// Logout handler
+function logout() {
+  localStorage.removeItem("btb_logged_in");
+  localStorage.removeItem("btb_username");
+  window.location.href = "index.html";
+}
+
 // Navigation
 const links = document.querySelectorAll('.nav-link');
 const pages = document.querySelectorAll('.page');
@@ -9,9 +21,33 @@ links.forEach(link => {
     links.forEach(l => l.classList.remove('active'));
     link.classList.add('active');
     pages.forEach(p => p.classList.add('hidden'));
-    document.getElementById(target).classList.remove('hidden');
+    const nextPage = document.getElementById(target);
+    nextPage.classList.remove('hidden');
+    // Trigger slide-in animation
+    nextPage.classList.remove('page-enter');
+    void nextPage.offsetWidth; // force reflow
+    nextPage.classList.add('page-enter');
+
+    // Re-trigger bar chart animation when entering overview
+    if (target === 'overview') {
+      replayBarChartAnimation();
+    }
   });
 });
+
+function replayBarChartAnimation() {
+  const bars = ['bar-pending', 'bar-ongoing', 'bar-completed'];
+  bars.forEach((id, idx) => {
+    const bar = document.getElementById(id);
+    if (!bar) return;
+    const targetHeight = bar.style.height;
+    bar.style.transition = 'none';
+    bar.style.height = '0%';
+    void bar.offsetWidth; // force reflow
+    bar.style.transition = `height 0.9s cubic-bezier(0.34, 1.56, 0.64, 1) ${idx * 0.12}s`;
+    bar.style.height = targetHeight;
+  });
+}
 
 // Create Task button -> jump to tasks page
 document.getElementById('create-task-btn').addEventListener('click', () => {
@@ -38,11 +74,13 @@ const QUOTES = [
 
 function getGreeting() {
   const hour = new Date().getHours();
-  if (hour < 5) return 'Working late, Team?';
-  if (hour < 12) return 'Good morning, Team';
-  if (hour < 17) return 'Good afternoon, Team';
-  if (hour < 21) return 'Good evening, Team';
-  return 'Burning the midnight oil, Team?';
+  const rawName = localStorage.getItem('btb_username') || 'Team';
+  const name = rawName.charAt(0).toUpperCase() + rawName.slice(1);
+  if (hour < 5) return `Working late, ${name}?`;
+  if (hour < 12) return `Good morning, ${name}`;
+  if (hour < 17) return `Good afternoon, ${name}`;
+  if (hour < 21) return `Good evening, ${name}`;
+  return `Burning the midnight oil, ${name}?`;
 }
 
 function updateWelcome() {
@@ -333,6 +371,9 @@ clientGrid.addEventListener('click', e => {
 
 // Task filter logic
 let currentFilter = 'all';
+let currentClientFilter = 'all';
+let currentPriorityFilter = 'all';
+let currentSort = 'created-desc';
 
 function applyTaskFilter(status) {
   currentFilter = status;
@@ -424,13 +465,37 @@ function renderTasks() {
 
   let visible;
   if (currentFilter === 'all') {
-    visible = tasks;
+    visible = tasks.slice();
   } else if (currentFilter === 'overdue') {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     visible = tasks.filter(t => t.status !== 'completed' && t.due && new Date(t.due + 'T00:00:00') < today);
   } else {
     visible = tasks.filter(t => t.status === currentFilter);
+  }
+
+  // Client filter
+  if (currentClientFilter && currentClientFilter !== 'all') {
+    visible = visible.filter(t => (t.client || '') === currentClientFilter);
+  }
+
+  // Priority filter
+  if (currentPriorityFilter && currentPriorityFilter !== 'all') {
+    visible = visible.filter(t => (t.priority || '') === currentPriorityFilter);
+  }
+
+  // Sort
+  const priorityRank = { high: 0, medium: 1, low: 2, '': 3 };
+  const farFuture = 8640000000000000;
+  const sortFns = {
+    'created-desc': (a, b) => (b.created || 0) - (a.created || 0),
+    'created-asc': (a, b) => (a.created || 0) - (b.created || 0),
+    'due-asc': (a, b) => (a.due ? new Date(a.due).getTime() : farFuture) - (b.due ? new Date(b.due).getTime() : farFuture),
+    'due-desc': (a, b) => (b.due ? new Date(b.due).getTime() : -1) - (a.due ? new Date(a.due).getTime() : -1),
+    'priority': (a, b) => (priorityRank[a.priority || ''] ?? 3) - (priorityRank[b.priority || ''] ?? 3),
+  };
+  if (currentSort !== 'custom') {
+    visible.sort(sortFns[currentSort] || sortFns['created-desc']);
   }
 
   if (visible.length === 0) {
@@ -444,8 +509,9 @@ function renderTasks() {
   visible.forEach((task) => {
     const realIndex = tasks.indexOf(task);
     const li = document.createElement('li');
-    li.className = 'task-item' + (task.status === 'completed' ? ' done' : '');
+    let liClass = 'task-item' + (task.status === 'completed' ? ' done' : '');
     li.dataset.index = realIndex;
+    li.draggable = task.status !== 'completed';
 
     const meta = [];
     if (task.due) {
@@ -459,12 +525,15 @@ function renderTasks() {
       if (task.status !== 'completed') {
         if (diffDays < 0) {
           chipClass += ' overdue';
-          dueLabel = `Overdue · ${dueLabel}`;
+          liClass += ' is-overdue';
+          dueLabel = `⚠ Overdue · ${dueLabel}`;
         } else if (diffDays === 0) {
-          chipClass += ' due-soon';
-          dueLabel = `Due today`;
+          chipClass += ' due-today';
+          liClass += ' is-due-today';
+          dueLabel = `● Due today`;
         } else if (diffDays <= 2) {
           chipClass += ' due-soon';
+          liClass += ' is-due-soon';
           dueLabel = `Due in ${diffDays}d`;
         } else {
           dueLabel = `Due ${dueLabel}`;
@@ -474,6 +543,7 @@ function renderTasks() {
       }
       meta.push(`<span class="${chipClass}">📅 ${dueLabel}</span>`);
     }
+    li.className = liClass;
 
     if (task.priority && task.priority !== 'medium') {
       meta.push(`<span class="task-meta-chip priority-${task.priority}">${task.priority.toUpperCase()}</span>`);
@@ -1483,3 +1553,921 @@ renderClients();
 saveClients();
 updateAll();
 renderYourTask();
+
+// ============================================
+// Advanced task filters + sort (client, priority, sort)
+// ============================================
+const taskClientFilter = document.getElementById('task-client-filter');
+const taskPriorityFilter = document.getElementById('task-priority-filter');
+const taskSort = document.getElementById('task-sort');
+
+function populateClientFilter() {
+  if (!taskClientFilter) return;
+  const current = taskClientFilter.value;
+  taskClientFilter.innerHTML = '<option value="all">All clients</option>';
+  const names = [...new Set(clients.map(c => c.name).filter(Boolean))].sort();
+  names.forEach(n => {
+    const opt = document.createElement('option');
+    opt.value = n;
+    opt.textContent = n;
+    taskClientFilter.appendChild(opt);
+  });
+  if (names.includes(current) || current === 'all') taskClientFilter.value = current;
+}
+
+populateClientFilter();
+
+if (taskClientFilter) {
+  taskClientFilter.addEventListener('change', () => {
+    currentClientFilter = taskClientFilter.value;
+    renderTasks();
+  });
+}
+
+if (taskPriorityFilter) {
+  taskPriorityFilter.addEventListener('change', () => {
+    currentPriorityFilter = taskPriorityFilter.value;
+    renderTasks();
+  });
+}
+
+if (taskSort) {
+  taskSort.addEventListener('change', () => {
+    currentSort = taskSort.value;
+    renderTasks();
+  });
+}
+
+// Repopulate client filter whenever clients change.
+// Wraps saveClients if it exists, else hooks into localStorage.setItem for 'clients'.
+const _origSetItem = localStorage.setItem.bind(localStorage);
+localStorage.setItem = function (k, v) {
+  _origSetItem(k, v);
+  if (k === 'clients') populateClientFilter();
+};
+
+// ============================================
+// Quick-add task on Overview
+// ============================================
+const quickAddInput = document.getElementById('quick-add-input');
+const quickAddBtn = document.getElementById('quick-add-btn');
+
+function quickAddTask() {
+  const text = quickAddInput.value.trim();
+  if (!text) {
+    quickAddInput.classList.add('shake');
+    setTimeout(() => quickAddInput.classList.remove('shake'), 400);
+    quickAddInput.focus();
+    return;
+  }
+  tasks.push({
+    text,
+    status: 'pending',
+    priority: 'medium',
+    due: '',
+    client: '',
+    notes: '',
+    created: Date.now(),
+  });
+  saveTasks();
+  renderTasks();
+  quickAddInput.value = '';
+  quickAddInput.classList.add('flash-ok');
+  setTimeout(() => quickAddInput.classList.remove('flash-ok'), 600);
+  quickAddInput.focus();
+}
+
+if (quickAddBtn) quickAddBtn.addEventListener('click', quickAddTask);
+if (quickAddInput) {
+  quickAddInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') quickAddTask();
+  });
+}
+
+// ============================================
+// Theme toggle button in header (syncs with settings dark toggle)
+// ============================================
+const themeToggleBtn = document.getElementById('theme-toggle-btn');
+
+function syncThemeIcon() {
+  if (!themeToggleBtn) return;
+  themeToggleBtn.textContent = document.body.classList.contains('dark') ? '☀' : '🌙';
+}
+
+syncThemeIcon();
+
+if (themeToggleBtn) {
+  themeToggleBtn.addEventListener('click', () => {
+    const nowDark = !document.body.classList.contains('dark');
+    document.body.classList.toggle('dark', nowDark);
+    localStorage.setItem('theme', nowDark ? 'dark' : 'light');
+    if (darkToggle) darkToggle.checked = nowDark;
+    syncThemeIcon();
+  });
+}
+
+// Also sync icon when settings dark toggle is used
+if (darkToggle) {
+  darkToggle.addEventListener('change', syncThemeIcon);
+}
+
+// ============================================
+// Client Drawer (slide-in detail view with tasks + progress)
+// ============================================
+const clientDrawer = document.getElementById('client-drawer');
+const clientDrawerBackdrop = document.getElementById('client-drawer-backdrop');
+const drawerClientName = document.getElementById('drawer-client-name');
+const drawerBody = document.getElementById('drawer-body');
+const drawerClose = document.getElementById('drawer-close');
+
+function openClientDrawer(client) {
+  const clientTasks = tasks.filter(t => t.client === client.name);
+  const total = clientTasks.length;
+  const done = clientTasks.filter(t => t.status === 'completed').length;
+  const pending = clientTasks.filter(t => t.status === 'pending').length;
+  const ongoing = clientTasks.filter(t => t.status === 'ongoing').length;
+  const pct = total ? Math.round((done / total) * 100) : 0;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const taskListHtml = clientTasks.length
+    ? clientTasks.map(t => {
+        let badge = '';
+        if (t.due && t.status !== 'completed') {
+          const d = new Date(t.due + 'T00:00:00');
+          const diff = Math.round((d - today) / 86400000);
+          if (diff < 0) badge = '<span class="drawer-badge red">OVERDUE</span>';
+          else if (diff === 0) badge = '<span class="drawer-badge orange">TODAY</span>';
+        }
+        const doneClass = t.status === 'completed' ? 'drawer-task done' : 'drawer-task';
+        return `<li class="${doneClass}"><span class="drawer-status ${t.status}">${t.status}</span><span class="drawer-task-text">${t.text}</span>${badge}</li>`;
+      }).join('')
+    : '<li class="drawer-empty">No tasks assigned to this client yet.</li>';
+
+  drawerClientName.textContent = client.name;
+  drawerBody.innerHTML = `
+    <div class="drawer-meta">
+      <span class="client-status ${client.status || 'active'}">${client.status || 'active'}</span>
+      <span class="drawer-chip">Priority: ${client.priority || 'medium'}</span>
+      ${client.code ? `<span class="drawer-chip">${client.code}</span>` : ''}
+    </div>
+
+    <div class="drawer-section">
+      <h4>Progress</h4>
+      <div class="drawer-progress">
+        <div class="drawer-progress-bar"><div class="drawer-progress-fill" style="width:${pct}%"></div></div>
+        <div class="drawer-progress-label">${done}/${total} tasks completed · ${pct}%</div>
+      </div>
+      <div class="drawer-stat-row">
+        <div class="drawer-stat"><span class="drawer-stat-num">${pending}</span><span class="drawer-stat-lbl">Pending</span></div>
+        <div class="drawer-stat"><span class="drawer-stat-num">${ongoing}</span><span class="drawer-stat-lbl">Ongoing</span></div>
+        <div class="drawer-stat"><span class="drawer-stat-num">${done}</span><span class="drawer-stat-lbl">Done</span></div>
+      </div>
+    </div>
+
+    <div class="drawer-section">
+      <h4>Tasks (${total})</h4>
+      <ul class="drawer-task-list">${taskListHtml}</ul>
+    </div>
+
+    <div class="drawer-section">
+      <h4>Contact</h4>
+      <div class="drawer-kv"><span>Name</span><span>${client.contact || '—'}</span></div>
+      <div class="drawer-kv"><span>Email</span><span>${client.email ? `<a href="mailto:${client.email}">${client.email}</a>` : '—'}</span></div>
+      <div class="drawer-kv"><span>Start date</span><span>${client.start ? new Date(client.start + 'T00:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '—'}</span></div>
+    </div>
+
+    ${client.notes ? `
+    <div class="drawer-section">
+      <h4>Notes</h4>
+      <p class="drawer-notes">${client.notes}</p>
+    </div>` : ''}
+  `;
+
+  clientDrawer.classList.remove('hidden');
+  clientDrawerBackdrop.classList.remove('hidden');
+  requestAnimationFrame(() => {
+    clientDrawer.classList.add('open');
+    clientDrawerBackdrop.classList.add('open');
+  });
+}
+
+function closeClientDrawer() {
+  clientDrawer.classList.remove('open');
+  clientDrawerBackdrop.classList.remove('open');
+  setTimeout(() => {
+    clientDrawer.classList.add('hidden');
+    clientDrawerBackdrop.classList.add('hidden');
+  }, 300);
+}
+
+if (drawerClose) drawerClose.addEventListener('click', closeClientDrawer);
+if (clientDrawerBackdrop) clientDrawerBackdrop.addEventListener('click', closeClientDrawer);
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && !clientDrawer.classList.contains('hidden')) closeClientDrawer();
+});
+
+// Open drawer when a client card is clicked
+clientGrid.addEventListener('click', e => {
+  if (e.target.closest('.client-delete')) return;
+  const card = e.target.closest('.client-card.clickable');
+  if (!card) return;
+  const i = parseInt(card.dataset.index, 10);
+  if (isNaN(i) || !clients[i]) return;
+  openClientDrawer(clients[i]);
+});
+
+// ============================================
+// Task drag-to-reorder
+// ============================================
+let dragSourceIndex = null;
+
+taskList.addEventListener('dragstart', e => {
+  const li = e.target.closest('.task-item');
+  if (!li || li.classList.contains('done')) return;
+  dragSourceIndex = parseInt(li.dataset.index, 10);
+  li.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', String(dragSourceIndex));
+});
+
+taskList.addEventListener('dragend', e => {
+  const li = e.target.closest('.task-item');
+  if (li) li.classList.remove('dragging');
+  document.querySelectorAll('.task-item.drag-over').forEach(el => el.classList.remove('drag-over'));
+  dragSourceIndex = null;
+});
+
+taskList.addEventListener('dragover', e => {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  const li = e.target.closest('.task-item');
+  if (!li || li.classList.contains('done')) return;
+  document.querySelectorAll('.task-item.drag-over').forEach(el => el.classList.remove('drag-over'));
+  li.classList.add('drag-over');
+});
+
+taskList.addEventListener('dragleave', e => {
+  const li = e.target.closest('.task-item');
+  if (li) li.classList.remove('drag-over');
+});
+
+taskList.addEventListener('drop', e => {
+  e.preventDefault();
+  const targetLi = e.target.closest('.task-item');
+  if (!targetLi) return;
+  const targetIndex = parseInt(targetLi.dataset.index, 10);
+  if (dragSourceIndex === null || dragSourceIndex === targetIndex) return;
+
+  // Reorder the tasks array
+  const [moved] = tasks.splice(dragSourceIndex, 1);
+  tasks.splice(targetIndex, 0, moved);
+
+  // Switch sort to custom order so drag order is respected
+  currentSort = 'created-desc';
+  if (taskSort) {
+    // Add a "Custom (drag order)" option if not present
+    if (!taskSort.querySelector('option[value="custom"]')) {
+      const opt = document.createElement('option');
+      opt.value = 'custom';
+      opt.textContent = 'Custom (drag order)';
+      taskSort.appendChild(opt);
+    }
+    taskSort.value = 'custom';
+    currentSort = 'custom';
+  }
+
+  saveTasks();
+  renderTasks();
+});
+
+// ============================================
+// Skeleton loader on initial dashboard mount
+// ============================================
+(function showInitialSkeleton() {
+  const overview = document.getElementById('overview');
+  if (!overview) return;
+  const skeleton = document.createElement('div');
+  skeleton.id = 'initial-skeleton';
+  skeleton.innerHTML = `
+    <div class="skel-welcome">
+      <div class="skel-line w-40"></div>
+      <div class="skel-line w-70 lg"></div>
+      <div class="skel-line w-55"></div>
+      <div class="skel-line w-30"></div>
+    </div>
+    <div class="skel-row">
+      <div class="skel-card"></div>
+      <div class="skel-card"></div>
+      <div class="skel-card"></div>
+    </div>
+    <div class="skel-row">
+      <div class="skel-card sm"></div>
+      <div class="skel-card sm"></div>
+      <div class="skel-card sm"></div>
+      <div class="skel-card sm"></div>
+    </div>
+    <div class="skel-row">
+      <div class="skel-card tall"></div>
+      <div class="skel-card tall"></div>
+    </div>
+  `;
+  document.body.appendChild(skeleton);
+
+  // Remove skeleton after short delay + fade out
+  setTimeout(() => {
+    skeleton.classList.add('fade-out');
+    setTimeout(() => {
+      skeleton.remove();
+      // Kick off the bar chart animation after skeleton fades
+      replayBarChartAnimation();
+    }, 300);
+  }, 650);
+})();
+
+// ============================================
+// Animate progress ring on updates
+// ============================================
+(function enhanceRingAnimation() {
+  const ring = document.querySelector('.progress-ring');
+  if (!ring) return;
+  ring.style.transition = 'background 0.8s cubic-bezier(0.4, 0, 0.2, 1)';
+})();
+
+// ============================================
+// Sound Engine (Web Audio API - no files needed)
+// ============================================
+const SoundEngine = (() => {
+  let audioCtx = null;
+  let enabled = localStorage.getItem('sound_enabled') === 'true';
+
+  function ensureContext() {
+    if (!audioCtx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      audioCtx = new AC();
+    }
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    return audioCtx;
+  }
+
+  function tone({ freq = 600, type = 'sine', duration = 0.08, gain = 0.15, attack = 0.005, release = 0.04, delay = 0 } = {}) {
+    const ctx = ensureContext();
+    if (!ctx) return;
+    const now = ctx.currentTime + delay;
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, now);
+    g.gain.setValueAtTime(0, now);
+    g.gain.linearRampToValueAtTime(gain, now + attack);
+    g.gain.linearRampToValueAtTime(0, now + duration + release);
+    osc.connect(g).connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + duration + release + 0.02);
+  }
+
+  return {
+    isEnabled: () => enabled,
+    setEnabled(v) {
+      enabled = !!v;
+      localStorage.setItem('sound_enabled', enabled ? 'true' : 'false');
+    },
+    click() {
+      if (!enabled) return;
+      tone({ freq: 880, type: 'sine', duration: 0.03, gain: 0.08 });
+    },
+    pop() {
+      if (!enabled) return;
+      tone({ freq: 520, type: 'triangle', duration: 0.05, gain: 0.12 });
+      tone({ freq: 780, type: 'triangle', duration: 0.06, gain: 0.1, delay: 0.03 });
+    },
+    success() {
+      if (!enabled) return;
+      // C5 -> E5 -> G5 ascending chime
+      tone({ freq: 523, type: 'sine', duration: 0.1, gain: 0.14 });
+      tone({ freq: 659, type: 'sine', duration: 0.1, gain: 0.14, delay: 0.08 });
+      tone({ freq: 784, type: 'sine', duration: 0.18, gain: 0.14, delay: 0.16 });
+    },
+    error() {
+      if (!enabled) return;
+      tone({ freq: 220, type: 'sawtooth', duration: 0.08, gain: 0.12 });
+      tone({ freq: 180, type: 'sawtooth', duration: 0.12, gain: 0.12, delay: 0.07 });
+    },
+    thunk() {
+      if (!enabled) return;
+      tone({ freq: 140, type: 'sine', duration: 0.09, gain: 0.15 });
+    },
+  };
+})();
+
+// Sound toggle wiring
+const soundToggle = document.getElementById('sound-toggle');
+if (soundToggle) {
+  soundToggle.checked = SoundEngine.isEnabled();
+  soundToggle.addEventListener('change', () => {
+    SoundEngine.setEnabled(soundToggle.checked);
+    if (soundToggle.checked) SoundEngine.success(); // confirm sound
+  });
+}
+
+// Wire sound effects to actions
+// Generic button clicks (avoid double-binding on inputs)
+document.addEventListener('click', e => {
+  const t = e.target;
+  if (t.tagName === 'BUTTON' && !t.closest('.task-item') && !t.closest('.client-card')) {
+    SoundEngine.click();
+  }
+});
+
+// Task event sounds via task-count watcher + action detection.
+// We avoid monkey-patching function declarations since event listeners capture
+// the original reference. Instead, watch for state changes after the fact.
+
+let _soundPrevTaskCount = tasks.length;
+let _soundPrevCompletedCount = tasks.filter(t => t.status === 'completed').length;
+
+function _soundWatchTaskChanges() {
+  const newCount = tasks.length;
+  const newCompletedCount = tasks.filter(t => t.status === 'completed').length;
+
+  if (newCount > _soundPrevTaskCount) {
+    SoundEngine.pop(); // task added
+  } else if (newCount < _soundPrevTaskCount) {
+    SoundEngine.thunk(); // task deleted
+  } else if (newCompletedCount > _soundPrevCompletedCount) {
+    SoundEngine.success(); // task completed
+  } else if (newCompletedCount < _soundPrevCompletedCount) {
+    SoundEngine.click(); // task uncompleted (subtle)
+  }
+
+  _soundPrevTaskCount = newCount;
+  _soundPrevCompletedCount = newCompletedCount;
+}
+
+// Hook into clicks that trigger task mutations.
+// We run after the handler via microtask - by then the task array is updated.
+['click', 'keydown'].forEach(evt => {
+  taskList.addEventListener(evt, () => queueMicrotask(_soundWatchTaskChanges), true);
+});
+
+if (addTaskBtn) addTaskBtn.addEventListener('click', () => queueMicrotask(_soundWatchTaskChanges));
+if (newTaskInput) newTaskInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') queueMicrotask(_soundWatchTaskChanges);
+});
+if (quickAddBtn) quickAddBtn.addEventListener('click', () => queueMicrotask(_soundWatchTaskChanges));
+if (quickAddInput) quickAddInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') queueMicrotask(_soundWatchTaskChanges);
+});
+
+// ============================================
+// Avatar Upload & Picker
+// ============================================
+const userAvatar = document.getElementById('user-avatar');
+const avatarImg = document.getElementById('avatar-img');
+const avatarModal = document.getElementById('avatar-modal');
+const avatarModalBackdrop = document.getElementById('avatar-modal-backdrop');
+const avatarModalClose = document.getElementById('avatar-modal-close');
+const avatarUpload = document.getElementById('avatar-upload');
+const avatarUploadBtn = document.getElementById('avatar-upload-btn');
+const avatarPreview = document.getElementById('avatar-preview');
+const avatarPreviewLabel = document.getElementById('avatar-preview-label');
+const avatarPresetsEl = document.getElementById('avatar-presets');
+const avatarInitialColorsEl = document.getElementById('avatar-initial-colors');
+const avatarResetBtn = document.getElementById('avatar-reset');
+
+const INITIAL_COLORS = [
+  { name: 'purple', from: '#8b5cf6', to: '#6366f1' },
+  { name: 'pink', from: '#ec4899', to: '#f43f5e' },
+  { name: 'orange', from: '#f97316', to: '#f59e0b' },
+  { name: 'teal', from: '#14b8a6', to: '#06b6d4' },
+  { name: 'green', from: '#10b981', to: '#84cc16' },
+  { name: 'blue', from: '#3b82f6', to: '#6366f1' },
+];
+
+function getUserInitials() {
+  const name = localStorage.getItem('btb_username') || 'admin';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return name.slice(0, 2).toUpperCase();
+}
+
+function initialsSvgDataUri(color, initials) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="${color.from}"/><stop offset="100%" stop-color="${color.to}"/></linearGradient></defs><rect width="100" height="100" rx="20" fill="url(#g)"/><text x="50" y="62" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-weight="700" font-size="42" fill="white">${initials}</text></svg>`;
+  return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+}
+
+function emojiSvgDataUri(emoji, bgColor) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="${bgColor}"/><text x="50" y="70" text-anchor="middle" font-size="58">${emoji}</text></svg>`;
+  return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+}
+
+const EMOJI_PRESETS = [
+  { emoji: '🚀', bg: '#ede9fe' },
+  { emoji: '🔥', bg: '#fee2e2' },
+  { emoji: '⚡', bg: '#fef3c7' },
+  { emoji: '🌱', bg: '#d1fae5' },
+  { emoji: '🎯', bg: '#dbeafe' },
+  { emoji: '💎', bg: '#e0f2fe' },
+  { emoji: '🦁', bg: '#ffedd5' },
+  { emoji: '🌙', bg: '#f3e8ff' },
+];
+
+function applyAvatarFromStorage() {
+  const saved = localStorage.getItem('btb_avatar');
+  if (saved) {
+    avatarImg.src = saved;
+  } else {
+    avatarImg.src = 'logo.png';
+  }
+}
+
+function setAvatar(src) {
+  avatarImg.src = src;
+  if (src === 'logo.png') {
+    localStorage.removeItem('btb_avatar');
+  } else {
+    localStorage.setItem('btb_avatar', src);
+  }
+  updatePreview();
+}
+
+function updatePreview() {
+  const current = localStorage.getItem('btb_avatar') || 'logo.png';
+  avatarPreview.innerHTML = `<img src="${current}" alt="preview" />`;
+}
+
+function renderEmojiPresets() {
+  avatarPresetsEl.innerHTML = '';
+  EMOJI_PRESETS.forEach(p => {
+    const btn = document.createElement('button');
+    btn.className = 'avatar-preset-btn';
+    btn.innerHTML = `<img src="${emojiSvgDataUri(p.emoji, p.bg)}" alt="${p.emoji}" />`;
+    btn.addEventListener('click', () => setAvatar(emojiSvgDataUri(p.emoji, p.bg)));
+    avatarPresetsEl.appendChild(btn);
+  });
+}
+
+function renderInitialColors() {
+  avatarInitialColorsEl.innerHTML = '';
+  const initials = getUserInitials();
+  INITIAL_COLORS.forEach(c => {
+    const btn = document.createElement('button');
+    btn.className = 'avatar-preset-btn';
+    btn.innerHTML = `<img src="${initialsSvgDataUri(c, initials)}" alt="${c.name}" />`;
+    btn.addEventListener('click', () => setAvatar(initialsSvgDataUri(c, initials)));
+    avatarInitialColorsEl.appendChild(btn);
+  });
+}
+
+function openAvatarModal() {
+  renderEmojiPresets();
+  renderInitialColors();
+  updatePreview();
+  avatarModal.classList.remove('hidden');
+  avatarModalBackdrop.classList.remove('hidden');
+  requestAnimationFrame(() => {
+    avatarModal.classList.add('open');
+    avatarModalBackdrop.classList.add('open');
+  });
+}
+
+function closeAvatarModal() {
+  avatarModal.classList.remove('open');
+  avatarModalBackdrop.classList.remove('open');
+  setTimeout(() => {
+    avatarModal.classList.add('hidden');
+    avatarModalBackdrop.classList.add('hidden');
+  }, 250);
+}
+
+if (userAvatar) userAvatar.addEventListener('click', openAvatarModal);
+if (avatarModalClose) avatarModalClose.addEventListener('click', closeAvatarModal);
+if (avatarModalBackdrop) avatarModalBackdrop.addEventListener('click', closeAvatarModal);
+if (avatarResetBtn) avatarResetBtn.addEventListener('click', () => setAvatar('logo.png'));
+
+if (avatarUploadBtn) {
+  avatarUploadBtn.addEventListener('click', () => avatarUpload.click());
+}
+
+if (avatarUpload) {
+  avatarUpload.addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      alert('Image too large - please pick one under 2MB.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => setAvatar(ev.target.result);
+    reader.readAsDataURL(file);
+  });
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && !avatarModal.classList.contains('hidden')) closeAvatarModal();
+});
+
+applyAvatarFromStorage();
+
+// ============================================
+// Streak counter + Daily goal
+// ============================================
+function todayKeyStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function recordCompletionForStreak() {
+  const today = todayKeyStr();
+  const completedDays = JSON.parse(localStorage.getItem('completed_days') || '[]');
+  if (!completedDays.includes(today)) {
+    completedDays.push(today);
+    localStorage.setItem('completed_days', JSON.stringify(completedDays));
+  }
+  updateStreakDisplay();
+}
+
+function calcStreak() {
+  const completedDays = JSON.parse(localStorage.getItem('completed_days') || '[]');
+  if (completedDays.length === 0) return 0;
+  const sorted = [...completedDays].sort().reverse();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  let streak = 0;
+  let cursor = new Date(today);
+
+  // If no completion today, start counting from yesterday (so streak doesn't break mid-day)
+  const todayStr = todayKeyStr();
+  if (!sorted.includes(todayStr)) {
+    cursor.setDate(cursor.getDate() - 1);
+  }
+
+  for (let i = 0; i < 365; i++) {
+    const key = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}-${String(cursor.getDate()).padStart(2, '0')}`;
+    if (sorted.includes(key)) {
+      streak++;
+      cursor.setDate(cursor.getDate() - 1);
+    } else {
+      break;
+    }
+  }
+  return streak;
+}
+
+function updateStreakDisplay() {
+  const streak = calcStreak();
+  const el = document.getElementById('streak-num');
+  const card = document.getElementById('streak-card');
+  if (el) el.textContent = streak;
+  if (card) {
+    card.classList.toggle('streak-active', streak > 0);
+    card.classList.toggle('streak-hot', streak >= 7);
+  }
+}
+
+function getDailyGoal() {
+  return parseInt(localStorage.getItem('daily_goal') || '5', 10);
+}
+
+function getTodayCompletionCount() {
+  // Count tasks completed today (based on completed_at timestamp)
+  const today = todayKeyStr();
+  return tasks.filter(t => t.status === 'completed' && t.completed_at === today).length;
+}
+
+function updateDailyGoalDisplay() {
+  const goal = getDailyGoal();
+  const done = getTodayCompletionCount();
+  const pct = Math.min(100, Math.round((done / goal) * 100));
+  const fill = document.getElementById('goal-progress-fill');
+  const stats = document.getElementById('goal-stats');
+  if (fill) fill.style.width = pct + '%';
+  if (stats) {
+    stats.textContent = done >= goal ? `${done} / ${goal} tasks · Goal hit! 🎉` : `${done} / ${goal} tasks`;
+  }
+  if (fill) fill.classList.toggle('goal-complete', done >= goal);
+}
+
+const goalEditBtn = document.getElementById('goal-edit');
+if (goalEditBtn) {
+  goalEditBtn.addEventListener('click', () => {
+    const current = getDailyGoal();
+    const next = prompt('Set your daily task goal:', String(current));
+    const n = parseInt(next, 10);
+    if (!isNaN(n) && n > 0 && n <= 50) {
+      localStorage.setItem('daily_goal', String(n));
+      updateDailyGoalDisplay();
+    }
+  });
+}
+
+// Stamp completion timestamps on tasks so we can count per-day
+function stampTaskCompletions() {
+  let dirty = false;
+  tasks.forEach(t => {
+    if (t.status === 'completed' && !t.completed_at) {
+      t.completed_at = todayKeyStr();
+      dirty = true;
+    }
+  });
+  if (dirty) saveTasks();
+}
+stampTaskCompletions();
+
+// Hook into task status changes - add completed_at timestamp when marked complete
+const _origSaveTasks = saveTasks;
+saveTasks = function () {
+  const today = todayKeyStr();
+  tasks.forEach(t => {
+    if (t.status === 'completed' && !t.completed_at) t.completed_at = today;
+    if (t.status !== 'completed' && t.completed_at) delete t.completed_at;
+  });
+  _origSaveTasks();
+};
+
+// ============================================
+// Confetti + Task Completion Celebration
+// ============================================
+function fireConfetti(x, y, count = 40) {
+  const container = document.createElement('div');
+  container.className = 'confetti-container';
+  document.body.appendChild(container);
+
+  const colors = ['#8b5cf6', '#ec4899', '#f97316', '#10b981', '#3b82f6', '#f59e0b'];
+
+  for (let i = 0; i < count; i++) {
+    const piece = document.createElement('div');
+    piece.className = 'confetti-piece';
+    piece.style.left = x + 'px';
+    piece.style.top = y + 'px';
+    piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+    const angle = Math.random() * Math.PI * 2;
+    const velocity = 120 + Math.random() * 200;
+    const vx = Math.cos(angle) * velocity;
+    const vy = Math.sin(angle) * velocity - 150; // upward bias
+    const rot = (Math.random() - 0.5) * 720;
+    piece.style.setProperty('--vx', vx + 'px');
+    piece.style.setProperty('--vy', vy + 'px');
+    piece.style.setProperty('--rot', rot + 'deg');
+    piece.style.animationDelay = (Math.random() * 0.1) + 's';
+    container.appendChild(piece);
+  }
+
+  setTimeout(() => container.remove(), 2000);
+}
+
+// Hook into task completion: detect when a task becomes completed and fire confetti + record streak
+let _celebPrevCompleted = tasks.filter(t => t.status === 'completed').length;
+
+function _checkCompletionCelebration(originEl) {
+  const nowCompleted = tasks.filter(t => t.status === 'completed').length;
+  if (nowCompleted > _celebPrevCompleted) {
+    // Confetti origin: the clicked element, or center of screen
+    let x = window.innerWidth / 2;
+    let y = window.innerHeight / 2;
+    if (originEl && originEl.getBoundingClientRect) {
+      const r = originEl.getBoundingClientRect();
+      x = r.left + r.width / 2;
+      y = r.top + r.height / 2;
+    }
+    fireConfetti(x, y, 50);
+    recordCompletionForStreak();
+
+    // Check if daily goal just hit
+    const done = getTodayCompletionCount();
+    const goal = getDailyGoal();
+    if (done === goal) {
+      setTimeout(() => fireConfetti(window.innerWidth / 2, window.innerHeight / 3, 120), 400);
+    }
+
+    updateDailyGoalDisplay();
+  } else if (nowCompleted < _celebPrevCompleted) {
+    updateDailyGoalDisplay();
+  }
+  _celebPrevCompleted = nowCompleted;
+}
+
+taskList.addEventListener('click', e => {
+  queueMicrotask(() => _checkCompletionCelebration(e.target));
+}, true);
+
+// Initial render
+updateStreakDisplay();
+updateDailyGoalDisplay();
+
+// Keep daily goal display fresh as tasks change
+const _origRenderTasks = renderTasks;
+renderTasks = function () {
+  _origRenderTasks();
+  updateDailyGoalDisplay();
+  updateStreakDisplay();
+};
+
+// ============================================
+// Time-of-day theming
+// ============================================
+function getTimeOfDay() {
+  const h = new Date().getHours();
+  if (h >= 5 && h < 11) return 'morning';
+  if (h >= 11 && h < 17) return 'day';
+  if (h >= 17 && h < 21) return 'evening';
+  return 'night';
+}
+
+function applyTimeOfDayTheme() {
+  const tod = getTimeOfDay();
+  document.body.classList.remove('tod-morning', 'tod-day', 'tod-evening', 'tod-night');
+  document.body.classList.add('tod-' + tod);
+}
+
+applyTimeOfDayTheme();
+setInterval(applyTimeOfDayTheme, 5 * 60 * 1000); // re-check every 5 min
+
+// ============================================
+// Weekly Recap Card
+// Shows last week's completed count at start of each week.
+// Dismissable; remembers dismissal per ISO week.
+// ============================================
+function getISOWeek(date) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return `${d.getUTCFullYear()}-W${String(Math.ceil((((d - yearStart) / 86400000) + 1) / 7)).padStart(2, '0')}`;
+}
+
+function getLastWeekRange() {
+  const today = new Date();
+  const day = today.getDay(); // 0 = Sun
+  const daysSinceMonday = (day + 6) % 7; // Mon = 0
+  const thisMonday = new Date(today);
+  thisMonday.setDate(today.getDate() - daysSinceMonday);
+  thisMonday.setHours(0, 0, 0, 0);
+  const lastMonday = new Date(thisMonday);
+  lastMonday.setDate(thisMonday.getDate() - 7);
+  const lastSunday = new Date(thisMonday);
+  lastSunday.setDate(thisMonday.getDate() - 1);
+  return { lastMonday, lastSunday };
+}
+
+function countTasksCompletedLastWeek() {
+  const { lastMonday, lastSunday } = getLastWeekRange();
+  const mondayKey = `${lastMonday.getFullYear()}-${String(lastMonday.getMonth() + 1).padStart(2, '0')}-${String(lastMonday.getDate()).padStart(2, '0')}`;
+  const sundayKey = `${lastSunday.getFullYear()}-${String(lastSunday.getMonth() + 1).padStart(2, '0')}-${String(lastSunday.getDate()).padStart(2, '0')}`;
+  return tasks.filter(t => {
+    if (!t.completed_at || t.status !== 'completed') return false;
+    return t.completed_at >= mondayKey && t.completed_at <= sundayKey;
+  }).length;
+}
+
+function renderWeeklyRecap() {
+  const card = document.getElementById('weekly-recap');
+  if (!card) return;
+
+  const currentWeek = getISOWeek(new Date());
+  const dismissedWeek = localStorage.getItem('recap_dismissed_week');
+  if (dismissedWeek === currentWeek) {
+    card.classList.add('hidden');
+    return;
+  }
+
+  const count = countTasksCompletedLastWeek();
+  const { lastMonday, lastSunday } = getLastWeekRange();
+  const fmt = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+  const msg = document.getElementById('recap-msg');
+  const title = document.getElementById('recap-title');
+  if (title) title.textContent = `Last week's recap · ${fmt(lastMonday)} – ${fmt(lastSunday)}`;
+
+  let message;
+  if (count === 0) {
+    message = 'No tasks completed last week. Fresh slate this week - let\'s build some momentum.';
+  } else if (count === 1) {
+    message = 'You completed <strong>1 task</strong> last week. Small wins compound.';
+  } else if (count < 5) {
+    message = `You completed <strong>${count} tasks</strong> last week. Solid start.`;
+  } else if (count < 10) {
+    message = `You completed <strong>${count} tasks</strong> last week. That's a real week of work.`;
+  } else if (count < 20) {
+    message = `<strong>${count} tasks</strong> done last week. That's pace. Keep it up.`;
+  } else {
+    message = `<strong>${count} tasks</strong> last week. 🔥 You were locked in.`;
+  }
+  if (msg) msg.innerHTML = message;
+
+  card.classList.remove('hidden');
+}
+
+const recapClose = document.getElementById('recap-close');
+if (recapClose) {
+  recapClose.addEventListener('click', () => {
+    const currentWeek = getISOWeek(new Date());
+    localStorage.setItem('recap_dismissed_week', currentWeek);
+    document.getElementById('weekly-recap').classList.add('hidden');
+  });
+}
+
+renderWeeklyRecap();

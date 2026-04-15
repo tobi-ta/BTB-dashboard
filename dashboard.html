@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BTB Dashboard</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-text">Behind The<br/>Business</div>
+    </div>
+    <nav>
+      <a href="#" class="nav-link active" data-page="overview">
+        <span class="icon">◉</span> Overview
+      </a>
+      <a href="#" class="nav-link" data-page="tasks">
+        <span class="icon">☰</span> Tasks
+      </a>
+      <a href="#" class="nav-link" data-page="clients">
+        <span class="icon">◈</span> Clients
+      </a>
+      <a href="#" class="nav-link" data-page="progress">
+        <span class="icon">◐</span> Overall Progress
+      </a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="blob-bg" aria-hidden="true">
+      <div class="blob blob-1"></div>
+      <div class="blob blob-2"></div>
+      <div class="blob blob-3"></div>
+      <div class="blob blob-4"></div>
+    </div>
+    <header class="topbar">
+      <div class="search">
+        <input type="text" id="search-input" placeholder="Search everything..." autocomplete="off" />
+        <div class="search-results" id="search-results"></div>
+      </div>
+      <div class="topbar-right">
+        <div class="dropdown-wrap">
+          <button class="icon-btn" id="notif-btn">
+            <span>🔔</span>
+            <span class="badge" id="notif-badge">0</span>
+          </button>
+          <div class="dropdown" id="notif-dropdown">
+            <div class="dropdown-head">
+              <strong>Notifications</strong>
+              <button id="mark-all-read">Mark all read</button>
+            </div>
+            <ul class="notif-list" id="notif-list"></ul>
+          </div>
+        </div>
+
+        <div class="dropdown-wrap">
+          <button class="icon-btn" id="settings-btn">⚙</button>
+          <div class="dropdown" id="settings-dropdown">
+            <div class="dropdown-head"><strong>Settings</strong></div>
+            <div class="setting-row">
+              <span>Dark Mode</span>
+              <label class="switch">
+                <input type="checkbox" id="dark-toggle">
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div class="setting-row">
+              <span>Compact View</span>
+              <label class="switch">
+                <input type="checkbox" id="compact-toggle">
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div class="setting-row">
+              <span>Sound Effects</span>
+              <label class="switch">
+                <input type="checkbox" id="sound-toggle">
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div class="setting-divider"></div>
+            <button class="setting-action" id="export-data">Export Data (JSON)</button>
+            <button class="setting-action danger" id="reset-data">Clear All Data</button>
+          </div>
+        </div>
+
+        <div class="avatar" id="user-avatar" title="Click to change"><img src="logo.png" alt="BTB" id="avatar-img" /></div>
+
+        <div class="avatar-modal-backdrop hidden" id="avatar-modal-backdrop"></div>
+        <div class="avatar-modal hidden" id="avatar-modal">
+          <div class="avatar-modal-head">
+            <h3>Change Avatar</h3>
+            <button class="avatar-modal-close" id="avatar-modal-close">×</button>
+          </div>
+          <div class="avatar-modal-body">
+            <div class="avatar-preview-row">
+              <div class="avatar-preview" id="avatar-preview"></div>
+              <div class="avatar-preview-label" id="avatar-preview-label">Current avatar</div>
+            </div>
+
+            <div class="avatar-section">
+              <label class="avatar-section-title">Upload your own</label>
+              <input type="file" id="avatar-upload" accept="image/*" hidden />
+              <button class="avatar-btn" id="avatar-upload-btn">Choose image</button>
+            </div>
+
+            <div class="avatar-section">
+              <label class="avatar-section-title">Or pick a generated avatar</label>
+              <div class="avatar-presets" id="avatar-presets"></div>
+            </div>
+
+            <div class="avatar-section">
+              <label class="avatar-section-title">Use your initials</label>
+              <div class="avatar-initial-colors" id="avatar-initial-colors"></div>
+            </div>
+
+            <div class="avatar-modal-actions">
+              <button class="avatar-btn secondary" id="avatar-reset">Reset to default</button>
+            </div>
+          </div>
+        </div>
+
+        <button class="icon-btn" id="theme-toggle-btn" title="Toggle theme">🌙</button>
+        <button class="icon-btn" id="logout-btn" onclick="logout()" title="Log out">Logout</button>
+      </div>
+    </header>
+
+    <div class="layout">
+      <div class="content">
+        <!-- Overview Page -->
+        <section class="page" id="overview">
+          <div id="weekly-recap" class="weekly-recap hidden">
+            <div class="recap-icon">📊</div>
+            <div class="recap-body">
+              <div class="recap-title" id="recap-title">Last week's recap</div>
+              <div class="recap-msg" id="recap-msg"></div>
+            </div>
+            <button class="recap-close" id="recap-close" title="Dismiss">×</button>
+          </div>
+          <div class="welcome">
+            <div class="welcome-text">
+              <div class="welcome-datetime" id="welcome-datetime"></div>
+              <h1 id="welcome-greeting">Welcome back, Team</h1>
+              <div class="welcome-quote" id="welcome-quote"></div>
+              <div class="welcome-chips" id="welcome-chips"></div>
+
+              <div class="streak-goal-row">
+                <div class="streak-card" id="streak-card" title="Days in a row with at least one completed task">
+                  <div class="streak-flame">🔥</div>
+                  <div>
+                    <div class="streak-num" id="streak-num">0</div>
+                    <div class="streak-lbl">day streak</div>
+                  </div>
+                </div>
+                <div class="goal-card">
+                  <div class="goal-head">
+                    <span class="goal-title">Today's goal</span>
+                    <button class="goal-edit" id="goal-edit" title="Edit goal">✎</button>
+                  </div>
+                  <div class="goal-progress-bar"><div class="goal-progress-fill" id="goal-progress-fill"></div></div>
+                  <div class="goal-stats" id="goal-stats">0 / 5 tasks</div>
+                </div>
+              </div>
+
+              <div class="quick-add">
+                <input type="text" id="quick-add-input" placeholder="Quick add a task - press Enter" />
+                <button class="btn-primary" id="quick-add-btn">Add</button>
+              </div>
+              <button class="btn-secondary" id="create-task-btn">Full Task Form →</button>
+            </div>
+            <div class="welcome-illustration">
+              <div class="illus-circle"></div>
+              <div class="illus-bar"></div>
+            </div>
+          </div>
+
+          <div class="mini-cards">
+            <div class="mini-card clickable" data-nav="clients">
+              <div class="mini-card-title">Open Clients</div>
+              <div class="mini-card-value">5</div>
+            </div>
+            <div class="mini-card highlight clickable" data-nav="tasks">
+              <div class="mini-card-title">Task Completion</div>
+              <div class="mini-card-value">0%</div>
+              <div class="mini-card-sub">0 tasks completed</div>
+            </div>
+            <div class="mini-card clickable" data-nav="clients">
+              <div class="mini-card-title">Tracked Clients</div>
+              <div class="mini-card-value">5</div>
+              <div class="mini-card-sub">Weekly activity tracked</div>
+            </div>
+          </div>
+
+          <div class="stats-row">
+            <div class="stat-card clickable" data-nav="tasks" data-filter="all">
+              <div class="stat-label">TOTAL TASKS</div>
+              <div class="stat-value" id="stat-total">0</div>
+            </div>
+            <div class="stat-card clickable" data-nav="tasks" data-filter="pending">
+              <div class="stat-label">PENDING</div>
+              <div class="stat-value" id="stat-pending">0</div>
+            </div>
+            <div class="stat-card clickable" data-nav="tasks" data-filter="ongoing">
+              <div class="stat-label">ONGOING</div>
+              <div class="stat-value" id="stat-ongoing">0</div>
+            </div>
+            <div class="stat-card clickable" data-nav="tasks" data-filter="completed">
+              <div class="stat-label">COMPLETED</div>
+              <div class="stat-value" id="stat-completed">0</div>
+            </div>
+          </div>
+
+          <div class="panel-grid">
+            <div class="panel">
+              <h3>Task Distribution</h3>
+              <div class="bar-chart" id="bar-chart">
+                <div class="bar-col">
+                  <div class="bar-count" id="leg-pending">0</div>
+                  <div class="bar-track"><div class="bar-fill pending" id="bar-pending"></div></div>
+                  <div class="bar-label">PENDING</div>
+                </div>
+                <div class="bar-col">
+                  <div class="bar-count" id="leg-ongoing">0</div>
+                  <div class="bar-track"><div class="bar-fill ongoing" id="bar-ongoing"></div></div>
+                  <div class="bar-label">ONGOING</div>
+                </div>
+                <div class="bar-col">
+                  <div class="bar-count" id="leg-completed">0</div>
+                  <div class="bar-track"><div class="bar-fill completed" id="bar-completed"></div></div>
+                  <div class="bar-label">COMPLETED</div>
+                </div>
+              </div>
+            </div>
+            <div class="panel">
+              <h3>Completion Rate</h3>
+              <div class="progress-wrap">
+                <div class="progress-ring">
+                  <div class="progress-value" id="completion-rate">0%</div>
+                </div>
+                <p class="progress-sub">Overall task completion</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Tasks Page -->
+        <section class="page hidden" id="tasks">
+          <div class="panel client-form">
+            <div class="client-form-head">
+              <h3>Add Task</h3>
+              <button class="form-toggle" id="task-form-toggle" title="Collapse">−</button>
+            </div>
+            <div class="client-form-body" id="task-form-body">
+              <div class="form-row">
+                <div class="form-field full">
+                  <label>Task <span class="req">*</span></label>
+                  <input type="text" id="new-task" placeholder="What needs to get done?" />
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-field">
+                  <label>Status</label>
+                  <select id="task-status">
+                    <option value="pending">Pending</option>
+                    <option value="ongoing">Ongoing</option>
+                    <option value="completed">Completed</option>
+                  </select>
+                </div>
+                <div class="form-field">
+                  <label>Priority</label>
+                  <select id="task-priority">
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                    <option value="low">Low</option>
+                  </select>
+                </div>
+                <div class="form-field">
+                  <label>Due Date</label>
+                  <input type="date" id="task-due" />
+                </div>
+                <div class="form-field">
+                  <label>Client</label>
+                  <select id="task-client">
+                    <option value="">— None —</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-field full">
+                  <label>Notes</label>
+                  <textarea id="task-notes" rows="2" placeholder="Anything useful..."></textarea>
+                </div>
+              </div>
+              <div class="form-actions">
+                <button class="btn-secondary" id="clear-task-form">Clear</button>
+                <button class="btn-primary" id="add-task">Add Task</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="task-filter-bar">
+            <button class="task-filter-chip active" data-tfilter="all">All</button>
+            <button class="task-filter-chip" data-tfilter="pending">Pending</button>
+            <button class="task-filter-chip" data-tfilter="ongoing">Ongoing</button>
+            <button class="task-filter-chip" data-tfilter="completed">Completed</button>
+            <button class="task-filter-chip overdue" data-tfilter="overdue">Overdue</button>
+          </div>
+
+          <div class="task-advanced-bar">
+            <label>
+              <span>Client</span>
+              <select id="task-client-filter">
+                <option value="all">All clients</option>
+              </select>
+            </label>
+            <label>
+              <span>Priority</span>
+              <select id="task-priority-filter">
+                <option value="all">Any</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+              </select>
+            </label>
+            <label>
+              <span>Sort</span>
+              <select id="task-sort">
+                <option value="created-desc">Newest first</option>
+                <option value="created-asc">Oldest first</option>
+                <option value="due-asc">Due date (soonest)</option>
+                <option value="due-desc">Due date (latest)</option>
+                <option value="priority">Priority (high → low)</option>
+              </select>
+            </label>
+          </div>
+
+          <ul class="task-list" id="task-list"></ul>
+        </section>
+
+        <!-- Clients Page -->
+        <section class="page hidden" id="clients">
+          <div class="panel client-form">
+            <div class="client-form-head">
+              <h3>Add Client</h3>
+              <button class="form-toggle" id="form-toggle" title="Collapse">−</button>
+            </div>
+            <div class="client-form-body" id="client-form-body">
+              <div class="form-row">
+                <div class="form-field">
+                  <label>Name <span class="req">*</span></label>
+                  <input type="text" id="new-client-name" placeholder="e.g. Acme Co." />
+                </div>
+                <div class="form-field">
+                  <label>Project Code</label>
+                  <input type="text" id="new-client-code" placeholder="e.g. Bedrock" />
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-field">
+                  <label>Status</label>
+                  <select id="new-client-status">
+                    <option value="active">Active</option>
+                    <option value="paused">Paused</option>
+                    <option value="completed">Completed</option>
+                  </select>
+                </div>
+                <div class="form-field">
+                  <label>Priority</label>
+                  <select id="new-client-priority">
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                    <option value="low">Low</option>
+                  </select>
+                </div>
+                <div class="form-field">
+                  <label>Start Date</label>
+                  <input type="date" id="new-client-start" />
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-field">
+                  <label>Contact Person</label>
+                  <input type="text" id="new-client-contact" placeholder="e.g. John Doe" />
+                </div>
+                <div class="form-field">
+                  <label>Email</label>
+                  <input type="email" id="new-client-email" placeholder="email@example.com" />
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-field full">
+                  <label>Notes</label>
+                  <textarea id="new-client-notes" rows="2" placeholder="Anything useful..."></textarea>
+                </div>
+              </div>
+              <div class="form-actions">
+                <button class="btn-secondary" id="clear-client-form">Clear</button>
+                <button class="btn-primary" id="add-client">Add Client</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="client-grid" id="client-grid"></div>
+
+          <div id="client-detail" class="panel hidden" style="margin-top: 20px;">
+            <div id="client-detail-content"></div>
+          </div>
+        </section>
+
+        <!-- Client Drawer (slides in from right) -->
+        <div id="client-drawer-backdrop" class="drawer-backdrop hidden"></div>
+        <aside id="client-drawer" class="drawer hidden">
+          <div class="drawer-head">
+            <h2 id="drawer-client-name">Client</h2>
+            <button class="drawer-close" id="drawer-close">×</button>
+          </div>
+          <div class="drawer-body" id="drawer-body"></div>
+        </aside>
+
+        <!-- Progress Page -->
+        <section class="page hidden" id="progress">
+          <div class="stats-row" id="progress-stats">
+            <div class="stat-card">
+              <div class="stat-label">COMPLETION RATE</div>
+              <div class="stat-value" id="prog-rate">0%</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">DONE THIS WEEK</div>
+              <div class="stat-value" id="prog-week">0</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">OVERDUE</div>
+              <div class="stat-value" id="prog-overdue" style="color: var(--danger);">0</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">ACTIVE CLIENTS</div>
+              <div class="stat-value" id="prog-active-clients">0</div>
+            </div>
+          </div>
+
+          <div class="progress-grid">
+            <div class="panel">
+              <h3>Progress by Client</h3>
+              <div id="progress-by-client"></div>
+            </div>
+            <div class="panel">
+              <h3>Priority Breakdown</h3>
+              <div id="progress-priority"></div>
+            </div>
+          </div>
+
+          <div class="progress-grid">
+            <div class="panel">
+              <h3>Upcoming Deadlines <span style="color: var(--muted); font-weight: normal; font-size: 12px;">(next 7 days)</span></h3>
+              <div id="progress-upcoming"></div>
+            </div>
+            <div class="panel">
+              <h3>Recently Completed</h3>
+              <div id="progress-recent"></div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- Right Rail -->
+      <aside class="rail">
+        <div class="panel calendar">
+          <div class="calendar-head">
+            <strong>Calendar</strong>
+            <div class="cal-nav">
+              <button class="cal-nav-btn" id="cal-prev">‹</button>
+              <button class="cal-nav-btn" id="cal-next">›</button>
+            </div>
+          </div>
+          <div class="cal-month-wrap">
+            <button class="cal-month" id="cal-month">April 2026</button>
+            <div class="month-picker" id="month-picker">
+              <select id="month-select"></select>
+              <input type="number" id="year-input" min="1900" max="2100" />
+              <button class="btn-primary" id="month-picker-go">Go</button>
+            </div>
+          </div>
+          <div class="cal-grid" id="cal-grid"></div>
+        </div>
+
+        <div class="panel your-task">
+          <h3>Your Task</h3>
+          <div class="your-task-item" id="your-task-item">
+            <div class="your-task-title">No active task</div>
+            <div class="your-task-sub">Add one on the Tasks page.</div>
+          </div>
+        </div>
+
+        <div class="panel storage">
+          <h3>Storage</h3>
+          <div class="storage-bar"><div class="storage-fill" style="width: 34%"></div></div>
+          <div class="storage-text">34% of 100 GB used</div>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <!-- Reminder Tooltip (hover) -->
+  <div class="reminder-tooltip" id="reminder-tooltip"></div>
+
+  <!-- Reminder Modal -->
+  <div class="modal-backdrop" id="reminder-modal">
+    <div class="modal">
+      <div class="modal-head">
+        <h3 id="reminder-date-title">Reminders</h3>
+        <button class="modal-close" id="reminder-close">×</button>
+      </div>
+      <div class="modal-body">
+        <ul class="reminder-list" id="reminder-list"></ul>
+        <div class="reminder-add">
+          <input type="text" id="reminder-input" placeholder="Reminder text..." />
+          <input type="time" id="reminder-time" />
+          <button class="btn-primary" id="reminder-add-btn">Add</button>
+        </div>
+        <div class="reminder-hint">Set a time to get an alarm when it hits.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Alarm Overlay -->
+  <div class="alarm-overlay" id="alarm-overlay">
+    <div class="alarm-box">
+      <div class="alarm-icon">⏰</div>
+      <div class="alarm-title">Reminder</div>
+      <div class="alarm-text" id="alarm-text"></div>
+      <div class="alarm-time" id="alarm-time"></div>
+      <button class="btn-primary" id="alarm-dismiss">Dismiss</button>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
