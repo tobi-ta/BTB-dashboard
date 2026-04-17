@@ -2174,7 +2174,7 @@ body.dark .task-meta-chip.due-soon {
   inset: 0;
   background: rgba(15, 17, 21, 0.45);
   opacity: 0;
-  z-index: 998;
+  z-index: 5000;
   transition: opacity 0.25s ease;
 }
 .drawer-backdrop.open { opacity: 1; }
@@ -2192,7 +2192,7 @@ body.dark .task-meta-chip.due-soon {
   box-shadow: -8px 0 40px rgba(0, 0, 0, 0.15);
   transform: translateX(100%);
   transition: transform 0.3s ease;
-  z-index: 999;
+  z-index: 5001;
   display: flex;
   flex-direction: column;
   border-left: 1px solid var(--border);
@@ -2328,6 +2328,24 @@ body.dark .task-meta-chip.due-soon {
 }
 .drawer-task-text {
   flex: 1;
+}
+.drawer-task-edit {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
+}
+.drawer-task-edit:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.drawer-task-edit:active {
+  transform: scale(0.97);
 }
 .drawer-status {
   padding: 2px 8px;
@@ -2630,6 +2648,19 @@ body.dark .skel-card {
 .topbar {
   position: relative;
   z-index: 50;
+}
+
+body.drawer-open .topbar,
+body.drawer-open .main > header {
+  z-index: 1;
+}
+
+body.drawer-open .topbar-right,
+body.drawer-open .dropdown-wrap,
+body.drawer-open #user-avatar,
+body.drawer-open #theme-toggle-btn,
+body.drawer-open #logout-btn {
+  pointer-events: none;
 }
 
 /* Dark mode: lower opacity, richer colors */

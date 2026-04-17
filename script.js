@@ -10,6 +10,149 @@ function logout() {
   window.location.href = "index.html";
 }
 
+const PERSIST_DB_NAME = 'btb-dashboard-db';
+const PERSIST_STORE_NAME = 'app-state';
+
+function openPersistDb() {
+  return new Promise((resolve, reject) => {
+    if (!('indexedDB' in window)) {
+      resolve(null);
+      return;
+    }
+
+    const request = indexedDB.open(PERSIST_DB_NAME, 1);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(PERSIST_STORE_NAME)) {
+        db.createObjectStore(PERSIST_STORE_NAME);
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function persistValue(key, value) {
+  try {
+    const db = await openPersistDb();
+    if (!db) return;
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(PERSIST_STORE_NAME, 'readwrite');
+      tx.objectStore(PERSIST_STORE_NAME).put(value, key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+    db.close();
+  } catch (error) {
+    console.warn(`IndexedDB save failed for ${key}`, error);
+  }
+}
+
+async function loadPersistedValue(key) {
+  try {
+    const db = await openPersistDb();
+    if (!db) return null;
+    const value = await new Promise((resolve, reject) => {
+      const tx = db.transaction(PERSIST_STORE_NAME, 'readonly');
+      const request = tx.objectStore(PERSIST_STORE_NAME).get(key);
+      request.onsuccess = () => resolve(request.result ?? null);
+      request.onerror = () => reject(request.error);
+    });
+    db.close();
+    return value;
+  } catch (error) {
+    console.warn(`IndexedDB load failed for ${key}`, error);
+    return null;
+  }
+}
+
+function normalizeClient(client = {}) {
+  return {
+    name: client.name,
+    code: client.code || '',
+    status: client.status || 'active',
+    priority: client.priority || 'medium',
+    start: client.start || '',
+    contact: client.contact || '',
+    email: client.email || '',
+    notes: client.notes || '',
+  };
+}
+
+function generateId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+function normalizeTask(task = {}) {
+  return {
+    id: task.id || generateId(),
+    text: task.text,
+    status: task.status || 'pending',
+    priority: task.priority || 'medium',
+    due: task.due || '',
+    client: task.client || '',
+    notes: task.notes || '',
+    created: task.created || Date.now(),
+    completed_at: task.completed_at,
+  };
+}
+
+async function syncTasksToSupabase() {
+  try {
+    const userName = localStorage.getItem('btb_username') || 'admin';
+    const rows = tasks.map(function(t) {
+      return {
+        id: t.id,
+        text: t.text || '',
+        status: t.status || 'pending',
+        priority: t.priority || 'medium',
+        due: t.due || '',
+        client: t.client || '',
+        notes: t.notes || '',
+        complete_at: t.completed_at ? new Date(t.completed_at).toISOString() : null,
+        user_id: userName
+      };
+    });
+
+    var { error } = await supabaseClient
+      .from('task')
+      .upsert(rows, { onConflict: 'id' });
+
+    if (error) {
+      console.warn('Supabase sync failed:', error.message);
+      return;
+    }
+
+    var localIds = tasks.map(function(t) { return t.id; });
+    await supabaseClient
+      .from('task')
+      .delete()
+      .eq('user_id', userName)
+      .not('id', 'in', '(' + localIds.join(',') + ')');
+
+  } catch (err) {
+    console.warn('Supabase sync error:', err);
+  }
+}
+
+async function loadTasksFromSupabase() {
+  try {
+    var { data, error } = await supabaseClient
+      .from('task')
+      .select('*');
+
+    if (error) {
+      console.warn('Supabase load failed:', error.message);
+      return null;
+    }
+
+    return data;
+  } catch (err) {
+    console.warn('Supabase load error:', err);
+    return null;
+  }
+}
+
 // Navigation
 const links = document.querySelectorAll('.nav-link');
 const pages = document.querySelectorAll('.page');
@@ -197,16 +340,61 @@ document.querySelectorAll('.clickable[data-nav]').forEach(card => {
 let clients = JSON.parse(localStorage.getItem('clients') || '[]');
 
 // Migrate old format { name, code } to full format
-clients = clients.map(c => ({
-  name: c.name,
-  code: c.code || '',
-  status: c.status || 'active',
-  priority: c.priority || 'medium',
-  start: c.start || '',
-  contact: c.contact || '',
-  email: c.email || '',
-  notes: c.notes || '',
-}));
+clients = clients.map(normalizeClient);
+
+function ensureStarterClients() {
+  const starterClients = [
+    {
+      name: 'Purpose Advisory',
+      code: 'Coast',
+      status: 'active',
+      priority: 'high',
+      contact: 'Tristan',
+      notes: 'Starter dashboard client seeded from homebase_.',
+    },
+    {
+      name: '1760',
+      code: 'Delta',
+      status: 'active',
+      priority: 'high',
+      contact: 'Matt / Mitch',
+      notes: 'Starter dashboard client seeded from homebase_.',
+    },
+    {
+      name: 'Redocs',
+      code: 'Bedrock',
+      status: 'active',
+      priority: 'medium',
+      contact: 'Jeremy',
+      notes: 'Starter dashboard client seeded from homebase_.',
+    },
+    {
+      name: 'Remar',
+      code: 'Ridge',
+      status: 'active',
+      priority: 'medium',
+      contact: '',
+      notes: 'Starter dashboard client seeded from homebase_.',
+    },
+    {
+      name: 'Genpact',
+      code: 'Plateau',
+      status: 'active',
+      priority: 'medium',
+      contact: '',
+      notes: 'Starter dashboard client seeded from homebase_.',
+    },
+  ];
+
+  starterClients.forEach(client => {
+    const exists = clients.some(existing => (existing.name || '').toLowerCase() === client.name.toLowerCase());
+    if (!exists) {
+      clients.push(normalizeClient(client));
+    }
+  });
+}
+
+ensureStarterClients();
 
 const clientGrid = document.getElementById('client-grid');
 const addClientBtn = document.getElementById('add-client');
@@ -225,10 +413,12 @@ const clientFormFields = {
   contact: document.getElementById('new-client-contact'),
   email: document.getElementById('new-client-email'),
   notes: document.getElementById('new-client-notes'),
+  firstTask: document.getElementById('new-client-task'),
 };
 
 function saveClients() {
   localStorage.setItem('clients', JSON.stringify(clients));
+  persistValue('clients', clients);
   const activeCount = clients.filter(c => c.status === 'active').length;
   const miniCards = document.querySelectorAll('.mini-card-value');
   if (miniCards[0]) miniCards[0].textContent = activeCount;
@@ -273,10 +463,12 @@ function clearClientForm() {
   clientFormFields.contact.value = '';
   clientFormFields.email.value = '';
   clientFormFields.notes.value = '';
+  clientFormFields.firstTask.value = '';
 }
 
 function addClient() {
   const name = clientFormFields.name.value.trim();
+  const firstTask = clientFormFields.firstTask.value.trim();
   if (!name) {
     clientFormFields.name.style.borderColor = 'var(--danger)';
     setTimeout(() => { clientFormFields.name.style.borderColor = ''; }, 1500);
@@ -295,8 +487,25 @@ function addClient() {
     notes: clientFormFields.notes.value.trim(),
   });
 
+  if (firstTask) {
+    tasks.push({
+      id: generateId(),
+      text: firstTask,
+      status: 'pending',
+      priority: clientFormFields.priority.value,
+      due: '',
+      client: name,
+      notes: '',
+      created: Date.now(),
+    });
+  }
+
   clearClientForm();
   saveClients();
+  if (firstTask) {
+    saveTasks();
+    renderTasks();
+  }
   renderClients();
   clientFormFields.name.focus();
 }
@@ -305,7 +514,7 @@ addClientBtn.addEventListener('click', addClient);
 clearClientFormBtn.addEventListener('click', clearClientForm);
 
 // Enter in simple inputs triggers add (except textarea)
-['name', 'code', 'contact', 'email'].forEach(key => {
+['name', 'code', 'contact', 'email', 'firstTask'].forEach(key => {
   clientFormFields[key].addEventListener('keydown', e => {
     if (e.key === 'Enter') addClient();
   });
@@ -411,16 +620,9 @@ function highlightTaskByText(text) {
 // Tasks
 let tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
 
-// Migrate old task format to include priority/due/client/notes
-tasks = tasks.map(t => ({
-  text: t.text,
-  status: t.status || 'pending',
-  priority: t.priority || 'medium',
-  due: t.due || '',
-  client: t.client || '',
-  notes: t.notes || '',
-  created: t.created || Date.now(),
-}));
+// Migrate old task format to include priority/due/client/notes and IDs
+tasks = tasks.map(normalizeTask);
+localStorage.setItem('tasks', JSON.stringify(tasks));
 
 const taskList = document.getElementById('task-list');
 const newTaskInput = document.getElementById('new-task');
@@ -433,6 +635,8 @@ const addTaskBtn = document.getElementById('add-task');
 const clearTaskFormBtn = document.getElementById('clear-task-form');
 const taskFormToggle = document.getElementById('task-form-toggle');
 const taskFormBody = document.getElementById('task-form-body');
+const taskFormTitle = document.getElementById('task-form-title');
+let editingTaskIndex = null;
 
 // Rebuild client dropdown when clients change
 function refreshClientDropdown() {
@@ -445,7 +649,25 @@ function refreshClientDropdown() {
 
 function saveTasks() {
   localStorage.setItem('tasks', JSON.stringify(tasks));
+  persistValue('tasks', tasks);
+  syncTasksToSupabase();
   updateAll();
+}
+
+function setTaskFormMode() {
+  const isEditing = editingTaskIndex !== null;
+  if (taskFormTitle) taskFormTitle.textContent = isEditing ? 'Edit Task' : 'Add Task';
+  if (addTaskBtn) addTaskBtn.textContent = isEditing ? 'Save Changes' : 'Add Task';
+  if (clearTaskFormBtn) clearTaskFormBtn.textContent = isEditing ? 'Cancel' : 'Clear';
+}
+
+function loadTaskIntoForm(task) {
+  newTaskInput.value = task.text || '';
+  taskStatus.value = task.status || 'pending';
+  taskPriority.value = task.priority || 'medium';
+  taskDue.value = task.due || '';
+  taskClient.value = task.client || '';
+  taskNotes.value = task.notes || '';
 }
 
 function renderTasks() {
@@ -586,14 +808,28 @@ function toggleDone(i) {
 }
 
 function editTask(i) {
-  const current = tasks[i].text;
-  const next = prompt('Edit task:', current);
-  if (next === null) return;
-  const trimmed = next.trim();
-  if (!trimmed) return;
-  tasks[i].text = trimmed;
-  saveTasks();
-  renderTasks();
+  const task = tasks[i];
+  if (!task) return;
+
+  editingTaskIndex = i;
+  loadTaskIntoForm(task);
+  setTaskFormMode();
+
+  taskFormBody.classList.remove('collapsed');
+  taskFormToggle.textContent = '−';
+  taskFormToggle.title = 'Collapse';
+  document.getElementById('tasks').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  newTaskInput.focus();
+  newTaskInput.select();
+}
+
+function openTaskEditorFromAnywhere(i) {
+  const task = tasks[i];
+  if (!task) return;
+
+  closeClientDrawer();
+  document.querySelector('[data-page="tasks"]').click();
+  setTimeout(() => editTask(i), 120);
 }
 
 function clearTaskForm() {
@@ -603,6 +839,8 @@ function clearTaskForm() {
   taskDue.value = '';
   taskClient.value = '';
   taskNotes.value = '';
+  editingTaskIndex = null;
+  setTaskFormMode();
 }
 
 function addTask() {
@@ -617,15 +855,29 @@ function addTask() {
     newTaskInput.focus();
     return;
   }
-  tasks.push({
+
+  const taskPayload = {
     text,
     status: taskStatus.value,
     priority: taskPriority.value,
     due: taskDue.value,
     client: taskClient.value,
     notes: taskNotes.value.trim(),
-    created: Date.now(),
-  });
+  };
+
+  if (editingTaskIndex !== null && tasks[editingTaskIndex]) {
+    tasks[editingTaskIndex] = {
+      ...tasks[editingTaskIndex],
+      ...taskPayload,
+    };
+  } else {
+    tasks.push({
+      id: generateId(),
+      ...taskPayload,
+      created: Date.now(),
+    });
+  }
+
   clearTaskForm();
   saveTasks();
   renderTasks();
@@ -678,6 +930,8 @@ taskList.addEventListener('dblclick', e => {
     editTask(i);
   }
 });
+
+setTaskFormMode();
 
 // Stats + charts
 function animateCount(el, target) {
@@ -1550,9 +1804,88 @@ viewMonth = today.getMonth();
 buildCalendar(viewYear, viewMonth);
 renderTasks();
 renderClients();
-saveClients();
+refreshClientDropdown();
 updateAll();
 renderYourTask();
+saveClients();
+
+async function hydratePersistentState() {
+  const [persistedClients, persistedTasks] = await Promise.all([
+    loadPersistedValue('clients'),
+    loadPersistedValue('tasks'),
+  ]);
+
+  let shouldRefresh = false;
+
+  if (Array.isArray(persistedClients) && persistedClients.length >= clients.length) {
+    clients = persistedClients.map(normalizeClient);
+    localStorage.setItem('clients', JSON.stringify(clients));
+    shouldRefresh = true;
+  }
+
+  if (Array.isArray(persistedTasks) && persistedTasks.length >= tasks.length) {
+    tasks = persistedTasks.map(normalizeTask);
+    localStorage.setItem('tasks', JSON.stringify(tasks));
+    shouldRefresh = true;
+  }
+
+  if (!shouldRefresh) {
+    persistValue('clients', clients);
+    persistValue('tasks', tasks);
+    return;
+  }
+
+  renderClients();
+  refreshClientDropdown();
+  populateClientFilter();
+  renderTasks();
+  updateAll();
+  renderYourTask();
+}
+
+hydratePersistentState().then(function() {
+  return loadTasksFromSupabase();
+}).then(function(supabaseTasks) {
+  if (!Array.isArray(supabaseTasks) || supabaseTasks.length === 0) {
+    console.log('Supabase: no rows or offline. Using localStorage.');
+    return;
+  }
+
+  var supabaseById = {};
+  supabaseTasks.forEach(function(row) {
+    supabaseById[row.id] = normalizeTask({
+      id: row.id,
+      text: row.text,
+      status: row.status,
+      priority: row.priority,
+      due: row.due,
+      client: row.client,
+      notes: row.notes,
+      created: new Date(row.created_at).getTime(),
+      completed_at: row.complete_at ? new Date(row.complete_at).getTime() : null
+    });
+  });
+
+  var localOnly = [];
+  tasks.forEach(function(t) {
+    if (t.id && !supabaseById[t.id]) {
+      localOnly.push(t);
+    }
+  });
+
+  tasks = Object.values(supabaseById).concat(localOnly);
+  localStorage.setItem('tasks', JSON.stringify(tasks));
+  persistValue('tasks', tasks);
+
+  if (localOnly.length > 0) {
+    syncTasksToSupabase();
+  }
+
+  renderTasks();
+  updateAll();
+  renderYourTask();
+  console.log('Supabase primary: ' + supabaseTasks.length + ' from cloud, ' + localOnly.length + ' local-only merged, ' + tasks.length + ' total');
+});
 
 // ============================================
 // Advanced task filters + sort (client, priority, sort)
@@ -1621,6 +1954,7 @@ function quickAddTask() {
     return;
   }
   tasks.push({
+    id: generateId(),
     text,
     status: 'pending',
     priority: 'medium',
@@ -1681,6 +2015,7 @@ const drawerBody = document.getElementById('drawer-body');
 const drawerClose = document.getElementById('drawer-close');
 
 function openClientDrawer(client) {
+  document.body.classList.add('drawer-open');
   const clientTasks = tasks.filter(t => t.client === client.name);
   const total = clientTasks.length;
   const done = clientTasks.filter(t => t.status === 'completed').length;
@@ -1693,6 +2028,7 @@ function openClientDrawer(client) {
 
   const taskListHtml = clientTasks.length
     ? clientTasks.map(t => {
+        const realIndex = tasks.indexOf(t);
         let badge = '';
         if (t.due && t.status !== 'completed') {
           const d = new Date(t.due + 'T00:00:00');
@@ -1701,7 +2037,12 @@ function openClientDrawer(client) {
           else if (diff === 0) badge = '<span class="drawer-badge orange">TODAY</span>';
         }
         const doneClass = t.status === 'completed' ? 'drawer-task done' : 'drawer-task';
-        return `<li class="${doneClass}"><span class="drawer-status ${t.status}">${t.status}</span><span class="drawer-task-text">${t.text}</span>${badge}</li>`;
+        return `<li class="${doneClass}">
+          <span class="drawer-status ${t.status}">${t.status}</span>
+          <span class="drawer-task-text">${t.text}</span>
+          ${badge}
+          <button class="drawer-task-edit" data-action="drawer-edit-task" data-index="${realIndex}" title="Edit task" aria-label="Edit task">&#9998;</button>
+        </li>`;
       }).join('')
     : '<li class="drawer-empty">No tasks assigned to this client yet.</li>';
 
@@ -1754,6 +2095,7 @@ function openClientDrawer(client) {
 }
 
 function closeClientDrawer() {
+  document.body.classList.remove('drawer-open');
   clientDrawer.classList.remove('open');
   clientDrawerBackdrop.classList.remove('open');
   setTimeout(() => {
@@ -1767,6 +2109,16 @@ if (clientDrawerBackdrop) clientDrawerBackdrop.addEventListener('click', closeCl
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && !clientDrawer.classList.contains('hidden')) closeClientDrawer();
 });
+
+if (drawerBody) {
+  drawerBody.addEventListener('click', e => {
+    const btn = e.target.closest('[data-action="drawer-edit-task"]');
+    if (!btn) return;
+    const i = parseInt(btn.dataset.index, 10);
+    if (isNaN(i)) return;
+    openTaskEditorFromAnywhere(i);
+  });
+}
 
 // Open drawer when a client card is clicked
 clientGrid.addEventListener('click', e => {

@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BTB Dashboard</title>
   <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-config.js"></script>
 </head>
 <body>
   <aside class="sidebar">
@@ -248,7 +250,7 @@
         <section class="page hidden" id="tasks">
           <div class="panel client-form">
             <div class="client-form-head">
-              <h3>Add Task</h3>
+              <h3 id="task-form-title">Add Task</h3>
               <button class="form-toggle" id="task-form-toggle" title="Collapse">−</button>
             </div>
             <div class="client-form-body" id="task-form-body">
@@ -392,6 +394,12 @@
                 <div class="form-field full">
                   <label>Notes</label>
                   <textarea id="new-client-notes" rows="2" placeholder="Anything useful..."></textarea>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-field full">
+                  <label>Task</label>
+                  <input type="text" id="new-client-task" placeholder="Optional: add a task for this client" />
                 </div>
               </div>
               <div class="form-actions">
