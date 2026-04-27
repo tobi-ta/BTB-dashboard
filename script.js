@@ -170,60 +170,22 @@ links.forEach(link => {
     nextPage.classList.remove('page-enter');
     void nextPage.offsetWidth; // force reflow
     nextPage.classList.add('page-enter');
-
-    // Re-trigger bar chart animation when entering overview
-    if (target === 'overview') {
-      replayBarChartAnimation();
-    }
   });
 });
-
-function replayBarChartAnimation() {
-  const bars = ['bar-pending', 'bar-ongoing', 'bar-completed'];
-  bars.forEach((id, idx) => {
-    const bar = document.getElementById(id);
-    if (!bar) return;
-    const targetHeight = bar.style.height;
-    bar.style.transition = 'none';
-    bar.style.height = '0%';
-    void bar.offsetWidth; // force reflow
-    bar.style.transition = `height 0.9s cubic-bezier(0.34, 1.56, 0.64, 1) ${idx * 0.12}s`;
-    bar.style.height = targetHeight;
-  });
-}
 
 // Create Task button -> jump to tasks page
-document.getElementById('create-task-btn').addEventListener('click', () => {
-  document.querySelector('[data-page="tasks"]').click();
-  document.getElementById('new-task').focus();
-});
-
-// Welcome banner - dynamic greeting, datetime, quotes, stat chips
-const QUOTES = [
-  "Small steps every day add up.",
-  "Done is better than perfect.",
-  "Clarity beats speed.",
-  "Focus on one thing at a time.",
-  "Ship it, then improve it.",
-  "The best time to start was yesterday. Next best is now.",
-  "Progress, not perfection.",
-  "Build momentum, not stress.",
-  "Quality is a habit, not an act.",
-  "Today's effort is tomorrow's result.",
-  "Consistency beats intensity.",
-  "Systems beat goals.",
-  "Simple scales. Clever doesn't.",
-];
-
 function getGreeting() {
   const hour = new Date().getHours();
-  const rawName = localStorage.getItem('btb_username') || 'Team';
-  const name = rawName.charAt(0).toUpperCase() + rawName.slice(1);
-  if (hour < 5) return `Working late, ${name}?`;
-  if (hour < 12) return `Good morning, ${name}`;
-  if (hour < 17) return `Good afternoon, ${name}`;
-  if (hour < 21) return `Good evening, ${name}`;
-  return `Burning the midnight oil, ${name}?`;
+  const rawName = (localStorage.getItem('btb_username') || '').trim();
+  const generic = ['admin', 'team', 'user', ''];
+  const useName = !generic.includes(rawName.toLowerCase());
+  const name = useName ? rawName.charAt(0).toUpperCase() + rawName.slice(1) : '';
+  const suffix = name ? `, ${name}` : '';
+  if (hour < 5) return `Working late${suffix}`;
+  if (hour < 12) return `Good morning${suffix}`;
+  if (hour < 17) return `Good afternoon${suffix}`;
+  if (hour < 21) return `Good evening${suffix}`;
+  return `Late night${suffix}`;
 }
 
 function updateWelcome() {
@@ -239,14 +201,6 @@ function updateWelcome() {
   const greet = document.getElementById('welcome-greeting');
   if (dt) dt.textContent = `${dateStr} · ${timeStr}`;
   if (greet) greet.textContent = getGreeting();
-}
-
-function updateWelcomeQuote() {
-  // Pick a quote based on the day so it stays stable for the day
-  const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0)) / 86400000);
-  const quote = QUOTES[dayOfYear % QUOTES.length];
-  const el = document.getElementById('welcome-quote');
-  if (el) el.textContent = `"${quote}"`;
 }
 
 function updateWelcomeChips() {
@@ -299,7 +253,7 @@ function updateWelcomeChips() {
   }
 
   if (chips.length === 0) {
-    chips.push({ label: 'all clear - add a task to get started', count: '✓', cls: 'success' });
+    chips.push({ label: 'nothing scheduled', count: '✓', cls: 'success' });
   }
 
   container.innerHTML = chips.map(c => `
@@ -320,7 +274,6 @@ function updateWelcomeChips() {
 }
 
 updateWelcome();
-updateWelcomeQuote();
 setInterval(updateWelcome, 60000); // Refresh time every minute
 
 // Clickable cards -> navigate to page (with optional filter)
@@ -419,10 +372,6 @@ const clientFormFields = {
 function saveClients() {
   localStorage.setItem('clients', JSON.stringify(clients));
   persistValue('clients', clients);
-  const activeCount = clients.filter(c => c.status === 'active').length;
-  const miniCards = document.querySelectorAll('.mini-card-value');
-  if (miniCards[0]) miniCards[0].textContent = activeCount;
-  if (miniCards[2]) miniCards[2].textContent = clients.length;
   refreshClientDropdown();
 }
 
@@ -633,9 +582,16 @@ const taskClient = document.getElementById('task-client');
 const taskNotes = document.getElementById('task-notes');
 const addTaskBtn = document.getElementById('add-task');
 const clearTaskFormBtn = document.getElementById('clear-task-form');
-const taskFormToggle = document.getElementById('task-form-toggle');
-const taskFormBody = document.getElementById('task-form-body');
+const taskDetailsToggle = document.getElementById('task-details-toggle');
+const taskFormDetails = document.getElementById('task-form-details');
 const taskFormTitle = document.getElementById('task-form-title');
+
+function setTaskDetailsExpanded(expanded) {
+  if (!taskFormDetails || !taskDetailsToggle) return;
+  taskFormDetails.hidden = !expanded;
+  taskDetailsToggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+  taskDetailsToggle.textContent = expanded ? '− details' : '+ details';
+}
 let editingTaskIndex = null;
 
 // Rebuild client dropdown when clients change
@@ -656,8 +612,8 @@ function saveTasks() {
 
 function setTaskFormMode() {
   const isEditing = editingTaskIndex !== null;
-  if (taskFormTitle) taskFormTitle.textContent = isEditing ? 'Edit Task' : 'Add Task';
-  if (addTaskBtn) addTaskBtn.textContent = isEditing ? 'Save Changes' : 'Add Task';
+  if (taskFormTitle) taskFormTitle.textContent = isEditing ? 'Editing task' : 'Adding a task';
+  if (addTaskBtn) addTaskBtn.textContent = isEditing ? 'Save' : 'Add';
   if (clearTaskFormBtn) clearTaskFormBtn.textContent = isEditing ? 'Cancel' : 'Clear';
 }
 
@@ -814,10 +770,7 @@ function editTask(i) {
   editingTaskIndex = i;
   loadTaskIntoForm(task);
   setTaskFormMode();
-
-  taskFormBody.classList.remove('collapsed');
-  taskFormToggle.textContent = '−';
-  taskFormToggle.title = 'Collapse';
+  setTaskDetailsExpanded(true);
   document.getElementById('tasks').scrollIntoView({ behavior: 'smooth', block: 'start' });
   newTaskInput.focus();
   newTaskInput.select();
@@ -841,17 +794,14 @@ function clearTaskForm() {
   taskNotes.value = '';
   editingTaskIndex = null;
   setTaskFormMode();
+  setTaskDetailsExpanded(false);
 }
 
 function addTask() {
   const text = newTaskInput.value.trim();
   if (!text) {
     newTaskInput.style.borderColor = 'var(--danger)';
-    newTaskInput.placeholder = 'Type something first...';
-    setTimeout(() => {
-      newTaskInput.style.borderColor = '';
-      newTaskInput.placeholder = 'What needs to get done?';
-    }, 1500);
+    setTimeout(() => { newTaskInput.style.borderColor = ''; }, 1200);
     newTaskInput.focus();
     return;
   }
@@ -888,11 +838,12 @@ addTaskBtn.addEventListener('click', addTask);
 clearTaskFormBtn.addEventListener('click', clearTaskForm);
 newTaskInput.addEventListener('keydown', e => { if (e.key === 'Enter') addTask(); });
 
-taskFormToggle.addEventListener('click', () => {
-  const isCollapsed = taskFormBody.classList.toggle('collapsed');
-  taskFormToggle.textContent = isCollapsed ? '+' : '−';
-  taskFormToggle.title = isCollapsed ? 'Expand' : 'Collapse';
-});
+if (taskDetailsToggle) {
+  taskDetailsToggle.addEventListener('click', () => {
+    const expanded = taskDetailsToggle.getAttribute('aria-expanded') === 'true';
+    setTaskDetailsExpanded(!expanded);
+  });
+}
 
 // Filter chips
 document.querySelectorAll('.task-filter-chip').forEach(chip => {
@@ -933,6 +884,30 @@ taskList.addEventListener('dblclick', e => {
 
 setTaskFormMode();
 
+// Today focus interactions
+const todayBody = document.getElementById('today-body');
+if (todayBody) {
+  todayBody.addEventListener('click', e => {
+    const li = e.target.closest('.today-task');
+    if (!li) return;
+    const i = parseInt(li.dataset.index, 10);
+    if (!isNaN(i)) cycleStatus(i);
+  });
+  todayBody.addEventListener('dblclick', e => {
+    const li = e.target.closest('.today-task');
+    if (!li) return;
+    const i = parseInt(li.dataset.index, 10);
+    if (!isNaN(i)) editTask(i);
+  });
+}
+
+const todayViewAll = document.getElementById('today-view-all');
+if (todayViewAll) {
+  todayViewAll.addEventListener('click', () => {
+    document.querySelector('[data-page="tasks"]').click();
+  });
+}
+
 // Stats + charts
 function animateCount(el, target) {
   if (!el) return;
@@ -958,51 +933,84 @@ function animateCount(el, target) {
 function updateAll() {
   if (typeof renderProgress === 'function') renderProgress();
   if (typeof updateWelcomeChips === 'function') updateWelcomeChips();
-  const total = tasks.length;
-  const pending = tasks.filter(t => t.status === 'pending').length;
-  const ongoing = tasks.filter(t => t.status === 'ongoing').length;
-  const completed = tasks.filter(t => t.status === 'completed').length;
+  if (typeof renderTodayFocus === 'function') renderTodayFocus();
+  if (typeof renderShippedThisWeek === 'function') renderShippedThisWeek();
+  if (typeof renderRailClients === 'function') renderRailClients();
+}
 
-  animateCount(document.getElementById('stat-total'), total);
-  animateCount(document.getElementById('stat-pending'), pending);
-  animateCount(document.getElementById('stat-ongoing'), ongoing);
-  animateCount(document.getElementById('stat-completed'), completed);
+function renderTodayFocus() {
+  const container = document.getElementById('today-body');
+  if (!container) return;
 
-  animateCount(document.getElementById('leg-pending'), pending);
-  animateCount(document.getElementById('leg-ongoing'), ongoing);
-  animateCount(document.getElementById('leg-completed'), completed);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayKey = dateKey(today.getFullYear(), today.getMonth(), today.getDate());
 
-  // Bar chart - heights based on max count (each bar scales 0-100%)
-  const max = Math.max(pending, ongoing, completed, 1);
-  const pendingBar = document.getElementById('bar-pending');
-  const ongoingBar = document.getElementById('bar-ongoing');
-  const completedBar = document.getElementById('bar-completed');
-  if (pendingBar) pendingBar.style.height = (pending / max * 100) + '%';
-  if (ongoingBar) ongoingBar.style.height = (ongoing / max * 100) + '%';
-  if (completedBar) completedBar.style.height = (completed / max * 100) + '%';
+  const week = new Date(today);
+  week.setDate(week.getDate() + 7);
 
-  // Completion ring
-  const rate = total === 0 ? 0 : Math.round((completed / total) * 100);
-  const ring = document.querySelector('.progress-ring');
-  ring.style.background = `conic-gradient(var(--accent) 0% ${rate}%, var(--border) ${rate}% 100%)`;
-  const rateEl = document.getElementById('completion-rate');
-  if (rateEl) {
-    const currentRate = parseInt(rateEl.textContent, 10) || 0;
-    if (currentRate !== rate) {
-      const start = performance.now();
-      const delta = rate - currentRate;
-      const step = now => {
-        const progress = Math.min((now - start) / 500, 1);
-        const eased = 1 - Math.pow(1 - progress, 3);
-        rateEl.textContent = Math.round(currentRate + delta * eased) + '%';
-        if (progress < 1) requestAnimationFrame(step);
-      };
-      requestAnimationFrame(step);
-    }
+  const overdue = [];
+  const dueToday = [];
+  const thisWeek = [];
+
+  tasks.forEach((t, i) => {
+    if (t.status === 'completed' || !t.due) return;
+    const d = new Date(t.due + 'T00:00:00');
+    if (d < today) overdue.push({ t, i });
+    else if (t.due === todayKey) dueToday.push({ t, i });
+    else if (d <= week) thisWeek.push({ t, i });
+  });
+
+  const priorityRank = { high: 0, medium: 1, low: 2, '': 3 };
+  const sortGroup = (a, b) => {
+    const p = (priorityRank[a.t.priority || ''] ?? 3) - (priorityRank[b.t.priority || ''] ?? 3);
+    if (p !== 0) return p;
+    return (a.t.due || '').localeCompare(b.t.due || '');
+  };
+  overdue.sort(sortGroup);
+  dueToday.sort(sortGroup);
+  thisWeek.sort(sortGroup);
+
+  if (overdue.length === 0 && dueToday.length === 0 && thisWeek.length === 0) {
+    const hasUndated = tasks.some(t => t.status !== 'completed' && !t.due);
+    container.innerHTML = `
+      <div class="today-empty">
+        <p class="today-empty-title">${tasks.length === 0 ? 'No tasks yet.' : 'Nothing scheduled this week.'}</p>
+        <p class="today-empty-sub">${hasUndated ? 'You have unscheduled tasks. Add a due date or open the tasks page.' : 'Add a task above or take a breather.'}</p>
+      </div>`;
+    return;
   }
 
-  // Your task panel updates via renderYourTask (defined below)
-  if (typeof renderYourTask === 'function') renderYourTask();
+  const escapeHtml = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  const renderItem = ({ t, i }) => {
+    const dueDate = new Date(t.due + 'T00:00:00');
+    const dueLabel = dueDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    const priority = t.priority || 'medium';
+    const client = t.client ? `<span class="today-client">${escapeHtml(t.client)}</span>` : '';
+    return `
+      <li class="today-task" data-action="cycle" data-index="${i}" title="Click to advance status · Double-click to edit">
+        <span class="today-priority-dot priority-${priority}" aria-hidden="true"></span>
+        <span class="today-text">${escapeHtml(t.text)}</span>
+        ${client}
+        <span class="today-due">${dueLabel}</span>
+      </li>`;
+  };
+
+  const renderGroup = (label, items, cls) => {
+    if (!items.length) return '';
+    return `
+      <div class="today-group ${cls || ''}">
+        <div class="today-group-head"><span>${label}</span><span class="today-count">${items.length}</span></div>
+        <ul class="today-list">${items.map(renderItem).join('')}</ul>
+      </div>`;
+  };
+
+  container.innerHTML = [
+    renderGroup('Overdue', overdue, 'is-overdue'),
+    renderGroup('Due today', dueToday, 'is-due-today'),
+    renderGroup('This week', thisWeek)
+  ].join('');
 }
 
 // Notifications
@@ -1435,7 +1443,6 @@ function closeReminderModal() {
   reminderModal.classList.remove('open');
   currentReminderDate = null;
   buildCalendar(viewYear, viewMonth);
-  renderYourTask();
 }
 
 function renderReminderList() {
@@ -1508,33 +1515,121 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && reminderModal.classList.contains('open')) closeReminderModal();
 });
 
-// Your Task panel - show today's reminders if any, else active task
-function renderYourTask() {
-  const yt = document.getElementById('your-task-item');
-  const now = new Date();
-  const todayKey = dateKey(now.getFullYear(), now.getMonth(), now.getDate());
-  const todayReminders = reminders[todayKey] || [];
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
 
-  if (todayReminders.length > 0) {
-    yt.innerHTML = `
-      <div class="your-task-title">📌 ${todayReminders[0]}</div>
-      <div class="your-task-sub">${todayReminders.length > 1 ? `+${todayReminders.length - 1} more reminder${todayReminders.length - 1 > 1 ? 's' : ''} today` : 'Reminder for today'}</div>
-    `;
+function renderShippedThisWeek() {
+  const list = document.getElementById('shipped-list');
+  const countEl = document.getElementById('shipped-count');
+  if (!list) return;
+
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const weekAgo = new Date(now);
+  weekAgo.setDate(weekAgo.getDate() - 7);
+
+  const completed = tasks
+    .filter(t => t.status === 'completed' && t.completed_at)
+    .map(t => ({ t, when: new Date(t.completed_at + 'T00:00:00') }))
+    .filter(x => x.when >= weekAgo)
+    .sort((a, b) => b.when - a.when)
+    .slice(0, 8);
+
+  if (countEl) countEl.textContent = completed.length ? `${completed.length}` : '';
+
+  if (completed.length === 0) {
+    list.innerHTML = `<li class="shipped-empty">Nothing shipped yet this week.</li>`;
     return;
   }
 
-  const active = tasks.find(t => t.status !== 'completed');
-  if (active) {
-    yt.innerHTML = `
-      <div class="your-task-title">${active.text}</div>
-      <div class="your-task-sub">${active.status.toUpperCase()}</div>
-    `;
-  } else {
-    yt.innerHTML = `
-      <div class="your-task-title">No active task</div>
-      <div class="your-task-sub">Click a day on the calendar to set a reminder.</div>
-    `;
+  list.innerHTML = completed.map(({ t, when }) => {
+    const day = when.toLocaleDateString('en-US', { weekday: 'short' });
+    const client = t.client ? `<span class="shipped-client">${escapeHtml(t.client)}</span>` : '';
+    return `
+      <li class="shipped-item">
+        <span class="shipped-day">${day}</span>
+        <span class="shipped-text">${escapeHtml(t.text)}</span>
+        ${client}
+      </li>`;
+  }).join('');
+}
+
+function setupScratchpad() {
+  const ta = document.getElementById('scratchpad');
+  if (!ta) return;
+  ta.value = localStorage.getItem('scratchpad') || '';
+
+  const autosize = () => {
+    ta.style.height = 'auto';
+    ta.style.height = Math.max(ta.scrollHeight, 72) + 'px';
+  };
+  autosize();
+
+  let timer;
+  ta.addEventListener('input', () => {
+    autosize();
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      localStorage.setItem('scratchpad', ta.value);
+    }, 400);
+  });
+  ta.addEventListener('blur', () => {
+    localStorage.setItem('scratchpad', ta.value);
+  });
+}
+
+function renderRailClients() {
+  const list = document.getElementById('rail-client-list');
+  if (!list) return;
+
+  const active = clients.filter(c => (c.status || 'active') === 'active');
+
+  if (active.length === 0) {
+    list.innerHTML = `<li class="rail-client-empty">No active clients.</li>`;
+    return;
   }
+
+  const now = Date.now();
+  const dayMs = 86400000;
+
+  const enriched = active.map(c => {
+    const clientTasks = tasks.filter(t => t.client === c.name);
+    const open = clientTasks.filter(t => t.status !== 'completed').length;
+    const overdue = clientTasks.filter(t => {
+      if (t.status === 'completed' || !t.due) return false;
+      return new Date(t.due + 'T00:00:00') < new Date(new Date().setHours(0,0,0,0));
+    }).length;
+
+    const stamps = clientTasks.flatMap(t => {
+      const arr = [];
+      if (t.created) arr.push(t.created);
+      if (t.completed_at) arr.push(new Date(t.completed_at + 'T00:00:00').getTime());
+      return arr;
+    });
+    const startStamp = c.start ? new Date(c.start + 'T00:00:00').getTime() : 0;
+    const lastStamp = stamps.length ? Math.max(...stamps) : startStamp;
+    const days = lastStamp ? Math.floor((now - lastStamp) / dayMs) : null;
+
+    return { c, open, overdue, days };
+  });
+
+  list.innerHTML = enriched.map(({ c, open, overdue, days }) => {
+    const priority = c.priority || 'medium';
+    const meta = [];
+    if (open > 0) meta.push(`${open} open`);
+    if (overdue > 0) meta.push(`<span class="rail-client-overdue">${overdue} overdue</span>`);
+    if (days !== null) meta.push(days === 0 ? 'today' : `${days}d ago`);
+    const metaText = meta.length ? meta.join(' · ') : 'no activity';
+    return `
+      <li class="rail-client-item" data-client="${escapeHtml(c.name)}">
+        <span class="rail-client-dot priority-${priority}"></span>
+        <div class="rail-client-body">
+          <div class="rail-client-name">${escapeHtml(c.name)}</div>
+          <div class="rail-client-meta">${metaText}</div>
+        </div>
+      </li>`;
+  }).join('');
 }
 
 // Overall Progress page
@@ -1806,8 +1901,19 @@ renderTasks();
 renderClients();
 refreshClientDropdown();
 updateAll();
-renderYourTask();
+setupScratchpad();
 saveClients();
+
+const railClientList = document.getElementById('rail-client-list');
+if (railClientList) {
+  railClientList.addEventListener('click', e => {
+    const li = e.target.closest('.rail-client-item');
+    if (!li) return;
+    const name = li.dataset.client;
+    const client = clients.find(c => c.name === name);
+    if (client) openClientDrawer(client);
+  });
+}
 
 async function hydratePersistentState() {
   const [persistedClients, persistedTasks] = await Promise.all([
@@ -1840,7 +1946,6 @@ async function hydratePersistentState() {
   populateClientFilter();
   renderTasks();
   updateAll();
-  renderYourTask();
 }
 
 hydratePersistentState().then(function() {
@@ -1883,7 +1988,6 @@ hydratePersistentState().then(function() {
 
   renderTasks();
   updateAll();
-  renderYourTask();
   console.log('Supabase primary: ' + supabaseTasks.length + ' from cloud, ' + localOnly.length + ' local-only merged, ' + tasks.length + ' total');
 });
 
@@ -1983,9 +2087,12 @@ if (quickAddInput) {
 // ============================================
 const themeToggleBtn = document.getElementById('theme-toggle-btn');
 
+const SUN_SVG = '<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>';
+const MOON_SVG = '<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+
 function syncThemeIcon() {
   if (!themeToggleBtn) return;
-  themeToggleBtn.textContent = document.body.classList.contains('dark') ? '☀' : '🌙';
+  themeToggleBtn.innerHTML = document.body.classList.contains('dark') ? SUN_SVG : MOON_SVG;
 }
 
 syncThemeIcon();
@@ -2210,31 +2317,14 @@ taskList.addEventListener('drop', e => {
       <div class="skel-line w-30"></div>
     </div>
     <div class="skel-row">
-      <div class="skel-card"></div>
-      <div class="skel-card"></div>
-      <div class="skel-card"></div>
-    </div>
-    <div class="skel-row">
-      <div class="skel-card sm"></div>
-      <div class="skel-card sm"></div>
-      <div class="skel-card sm"></div>
-      <div class="skel-card sm"></div>
-    </div>
-    <div class="skel-row">
-      <div class="skel-card tall"></div>
       <div class="skel-card tall"></div>
     </div>
   `;
   document.body.appendChild(skeleton);
 
-  // Remove skeleton after short delay + fade out
   setTimeout(() => {
     skeleton.classList.add('fade-out');
-    setTimeout(() => {
-      skeleton.remove();
-      // Kick off the bar chart animation after skeleton fades
-      replayBarChartAnimation();
-    }, 300);
+    setTimeout(() => skeleton.remove(), 300);
   }, 650);
 })();
 
@@ -2580,42 +2670,6 @@ function updateStreakDisplay() {
   }
 }
 
-function getDailyGoal() {
-  return parseInt(localStorage.getItem('daily_goal') || '5', 10);
-}
-
-function getTodayCompletionCount() {
-  // Count tasks completed today (based on completed_at timestamp)
-  const today = todayKeyStr();
-  return tasks.filter(t => t.status === 'completed' && t.completed_at === today).length;
-}
-
-function updateDailyGoalDisplay() {
-  const goal = getDailyGoal();
-  const done = getTodayCompletionCount();
-  const pct = Math.min(100, Math.round((done / goal) * 100));
-  const fill = document.getElementById('goal-progress-fill');
-  const stats = document.getElementById('goal-stats');
-  if (fill) fill.style.width = pct + '%';
-  if (stats) {
-    stats.textContent = done >= goal ? `${done} / ${goal} tasks · Goal hit! 🎉` : `${done} / ${goal} tasks`;
-  }
-  if (fill) fill.classList.toggle('goal-complete', done >= goal);
-}
-
-const goalEditBtn = document.getElementById('goal-edit');
-if (goalEditBtn) {
-  goalEditBtn.addEventListener('click', () => {
-    const current = getDailyGoal();
-    const next = prompt('Set your daily task goal:', String(current));
-    const n = parseInt(next, 10);
-    if (!isNaN(n) && n > 0 && n <= 50) {
-      localStorage.setItem('daily_goal', String(n));
-      updateDailyGoalDisplay();
-    }
-  });
-}
-
 // Stamp completion timestamps on tasks so we can count per-day
 function stampTaskCompletions() {
   let dirty = false;
@@ -2687,17 +2741,6 @@ function _checkCompletionCelebration(originEl) {
     }
     fireConfetti(x, y, 50);
     recordCompletionForStreak();
-
-    // Check if daily goal just hit
-    const done = getTodayCompletionCount();
-    const goal = getDailyGoal();
-    if (done === goal) {
-      setTimeout(() => fireConfetti(window.innerWidth / 2, window.innerHeight / 3, 120), 400);
-    }
-
-    updateDailyGoalDisplay();
-  } else if (nowCompleted < _celebPrevCompleted) {
-    updateDailyGoalDisplay();
   }
   _celebPrevCompleted = nowCompleted;
 }
@@ -2708,13 +2751,11 @@ taskList.addEventListener('click', e => {
 
 // Initial render
 updateStreakDisplay();
-updateDailyGoalDisplay();
 
-// Keep daily goal display fresh as tasks change
+// Keep streak display fresh as tasks change
 const _origRenderTasks = renderTasks;
 renderTasks = function () {
   _origRenderTasks();
-  updateDailyGoalDisplay();
   updateStreakDisplay();
 };
 

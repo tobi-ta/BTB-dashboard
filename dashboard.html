@@ -15,36 +15,34 @@
     </div>
     <nav>
       <a href="#" class="nav-link active" data-page="overview">
-        <span class="icon">◉</span> Overview
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12l9-9 9 9"/><path d="M5 10v10h14V10"/></svg>
+        Overview
       </a>
       <a href="#" class="nav-link" data-page="tasks">
-        <span class="icon">☰</span> Tasks
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        Tasks
       </a>
       <a href="#" class="nav-link" data-page="clients">
-        <span class="icon">◈</span> Clients
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Clients
       </a>
       <a href="#" class="nav-link" data-page="progress">
-        <span class="icon">◐</span> Overall Progress
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+        Progress
       </a>
     </nav>
   </aside>
 
   <main class="main">
-    <div class="blob-bg" aria-hidden="true">
-      <div class="blob blob-1"></div>
-      <div class="blob blob-2"></div>
-      <div class="blob blob-3"></div>
-      <div class="blob blob-4"></div>
-    </div>
     <header class="topbar">
       <div class="search">
-        <input type="text" id="search-input" placeholder="Search everything..." autocomplete="off" />
+        <input type="text" id="search-input" placeholder="Search" autocomplete="off" />
         <div class="search-results" id="search-results"></div>
       </div>
       <div class="topbar-right">
         <div class="dropdown-wrap">
-          <button class="icon-btn" id="notif-btn">
-            <span>🔔</span>
+          <button class="icon-btn" id="notif-btn" aria-label="Notifications">
+            <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
             <span class="badge" id="notif-badge">0</span>
           </button>
           <div class="dropdown" id="notif-dropdown">
@@ -57,7 +55,7 @@
         </div>
 
         <div class="dropdown-wrap">
-          <button class="icon-btn" id="settings-btn">⚙</button>
+          <button class="icon-btn" id="settings-btn" aria-label="Settings"><svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
           <div class="dropdown" id="settings-dropdown">
             <div class="dropdown-head"><strong>Settings</strong></div>
             <div class="setting-row">
@@ -123,7 +121,7 @@
           </div>
         </div>
 
-        <button class="icon-btn" id="theme-toggle-btn" title="Toggle theme">🌙</button>
+        <button class="icon-btn" id="theme-toggle-btn" title="Toggle theme" aria-label="Toggle theme"><svg class="icon-svg icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button>
         <button class="icon-btn" id="logout-btn" onclick="logout()" title="Log out">Logout</button>
       </div>
     </header>
@@ -133,7 +131,7 @@
         <!-- Overview Page -->
         <section class="page" id="overview">
           <div id="weekly-recap" class="weekly-recap hidden">
-            <div class="recap-icon">📊</div>
+            <div class="recap-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg></div>
             <div class="recap-body">
               <div class="recap-title" id="recap-title">Last week's recap</div>
               <div class="recap-msg" id="recap-msg"></div>
@@ -143,123 +141,59 @@
           <div class="welcome">
             <div class="welcome-text">
               <div class="welcome-datetime" id="welcome-datetime"></div>
-              <h1 id="welcome-greeting">Welcome back, Team</h1>
-              <div class="welcome-quote" id="welcome-quote"></div>
+              <h1 id="welcome-greeting"></h1>
               <div class="welcome-chips" id="welcome-chips"></div>
 
-              <div class="streak-goal-row">
+              <div class="streak-row">
                 <div class="streak-card" id="streak-card" title="Days in a row with at least one completed task">
-                  <div class="streak-flame">🔥</div>
+                  <div class="streak-flame"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg></div>
                   <div>
                     <div class="streak-num" id="streak-num">0</div>
                     <div class="streak-lbl">day streak</div>
                   </div>
                 </div>
-                <div class="goal-card">
-                  <div class="goal-head">
-                    <span class="goal-title">Today's goal</span>
-                    <button class="goal-edit" id="goal-edit" title="Edit goal">✎</button>
-                  </div>
-                  <div class="goal-progress-bar"><div class="goal-progress-fill" id="goal-progress-fill"></div></div>
-                  <div class="goal-stats" id="goal-stats">0 / 5 tasks</div>
-                </div>
               </div>
 
               <div class="quick-add">
-                <input type="text" id="quick-add-input" placeholder="Quick add a task - press Enter" />
+                <input type="text" id="quick-add-input" placeholder="Add a task and press Enter" />
                 <button class="btn-primary" id="quick-add-btn">Add</button>
               </div>
-              <button class="btn-secondary" id="create-task-btn">Full Task Form →</button>
-            </div>
-            <div class="welcome-illustration">
-              <div class="illus-circle"></div>
-              <div class="illus-bar"></div>
             </div>
           </div>
 
-          <div class="mini-cards">
-            <div class="mini-card clickable" data-nav="clients">
-              <div class="mini-card-title">Open Clients</div>
-              <div class="mini-card-value">5</div>
+          <section class="today-focus" id="today-focus">
+            <div class="today-head">
+              <h2>Today</h2>
+              <button class="today-view-all" id="today-view-all">View all tasks →</button>
             </div>
-            <div class="mini-card highlight clickable" data-nav="tasks">
-              <div class="mini-card-title">Task Completion</div>
-              <div class="mini-card-value">0%</div>
-              <div class="mini-card-sub">0 tasks completed</div>
-            </div>
-            <div class="mini-card clickable" data-nav="clients">
-              <div class="mini-card-title">Tracked Clients</div>
-              <div class="mini-card-value">5</div>
-              <div class="mini-card-sub">Weekly activity tracked</div>
-            </div>
-          </div>
+            <div class="today-body" id="today-body"></div>
+          </section>
 
-          <div class="stats-row">
-            <div class="stat-card clickable" data-nav="tasks" data-filter="all">
-              <div class="stat-label">TOTAL TASKS</div>
-              <div class="stat-value" id="stat-total">0</div>
-            </div>
-            <div class="stat-card clickable" data-nav="tasks" data-filter="pending">
-              <div class="stat-label">PENDING</div>
-              <div class="stat-value" id="stat-pending">0</div>
-            </div>
-            <div class="stat-card clickable" data-nav="tasks" data-filter="ongoing">
-              <div class="stat-label">ONGOING</div>
-              <div class="stat-value" id="stat-ongoing">0</div>
-            </div>
-            <div class="stat-card clickable" data-nav="tasks" data-filter="completed">
-              <div class="stat-label">COMPLETED</div>
-              <div class="stat-value" id="stat-completed">0</div>
-            </div>
-          </div>
+          <section class="scratchpad-wrap">
+            <textarea id="scratchpad" rows="3" placeholder="Today's notes — drafts, reminders, half-formed thoughts."></textarea>
+          </section>
 
-          <div class="panel-grid">
-            <div class="panel">
-              <h3>Task Distribution</h3>
-              <div class="bar-chart" id="bar-chart">
-                <div class="bar-col">
-                  <div class="bar-count" id="leg-pending">0</div>
-                  <div class="bar-track"><div class="bar-fill pending" id="bar-pending"></div></div>
-                  <div class="bar-label">PENDING</div>
-                </div>
-                <div class="bar-col">
-                  <div class="bar-count" id="leg-ongoing">0</div>
-                  <div class="bar-track"><div class="bar-fill ongoing" id="bar-ongoing"></div></div>
-                  <div class="bar-label">ONGOING</div>
-                </div>
-                <div class="bar-col">
-                  <div class="bar-count" id="leg-completed">0</div>
-                  <div class="bar-track"><div class="bar-fill completed" id="bar-completed"></div></div>
-                  <div class="bar-label">COMPLETED</div>
-                </div>
-              </div>
+          <section class="shipped-week" id="shipped-week">
+            <div class="shipped-head">
+              <span class="shipped-label">Shipped this week</span>
+              <span class="shipped-count" id="shipped-count"></span>
             </div>
-            <div class="panel">
-              <h3>Completion Rate</h3>
-              <div class="progress-wrap">
-                <div class="progress-ring">
-                  <div class="progress-value" id="completion-rate">0%</div>
-                </div>
-                <p class="progress-sub">Overall task completion</p>
-              </div>
-            </div>
-          </div>
+            <ul class="shipped-list" id="shipped-list"></ul>
+          </section>
         </section>
 
         <!-- Tasks Page -->
         <section class="page hidden" id="tasks">
-          <div class="panel client-form">
-            <div class="client-form-head">
-              <h3 id="task-form-title">Add Task</h3>
-              <button class="form-toggle" id="task-form-toggle" title="Collapse">−</button>
+          <div class="task-quick-form">
+            <div class="task-quick-row">
+              <input type="text" id="new-task" placeholder="Task name" />
+              <button class="btn-primary" id="add-task">Add</button>
             </div>
-            <div class="client-form-body" id="task-form-body">
-              <div class="form-row">
-                <div class="form-field full">
-                  <label>Task <span class="req">*</span></label>
-                  <input type="text" id="new-task" placeholder="What needs to get done?" />
-                </div>
-              </div>
+            <div class="task-form-meta">
+              <span class="task-form-edit-hint" id="task-form-title">Adding a task</span>
+              <button type="button" class="task-details-toggle" id="task-details-toggle" aria-expanded="false">+ details</button>
+            </div>
+            <div class="task-form-details" id="task-form-details" hidden>
               <div class="form-row">
                 <div class="form-field">
                   <label>Status</label>
@@ -291,12 +225,11 @@
               <div class="form-row">
                 <div class="form-field full">
                   <label>Notes</label>
-                  <textarea id="task-notes" rows="2" placeholder="Anything useful..."></textarea>
+                  <textarea id="task-notes" rows="2" placeholder="Notes"></textarea>
                 </div>
               </div>
               <div class="form-actions">
                 <button class="btn-secondary" id="clear-task-form">Clear</button>
-                <button class="btn-primary" id="add-task">Add Task</button>
               </div>
             </div>
           </div>
@@ -351,11 +284,11 @@
               <div class="form-row">
                 <div class="form-field">
                   <label>Name <span class="req">*</span></label>
-                  <input type="text" id="new-client-name" placeholder="e.g. Acme Co." />
+                  <input type="text" id="new-client-name" placeholder="Client name" />
                 </div>
                 <div class="form-field">
                   <label>Project Code</label>
-                  <input type="text" id="new-client-code" placeholder="e.g. Bedrock" />
+                  <input type="text" id="new-client-code" placeholder="Project code" />
                 </div>
               </div>
               <div class="form-row">
@@ -383,7 +316,7 @@
               <div class="form-row">
                 <div class="form-field">
                   <label>Contact Person</label>
-                  <input type="text" id="new-client-contact" placeholder="e.g. John Doe" />
+                  <input type="text" id="new-client-contact" placeholder="Contact name" />
                 </div>
                 <div class="form-field">
                   <label>Email</label>
@@ -393,13 +326,13 @@
               <div class="form-row">
                 <div class="form-field full">
                   <label>Notes</label>
-                  <textarea id="new-client-notes" rows="2" placeholder="Anything useful..."></textarea>
+                  <textarea id="new-client-notes" rows="2" placeholder="Notes"></textarea>
                 </div>
               </div>
               <div class="form-row">
                 <div class="form-field full">
                   <label>Task</label>
-                  <input type="text" id="new-client-task" placeholder="Optional: add a task for this client" />
+                  <input type="text" id="new-client-task" placeholder="Add a task for this client" />
                 </div>
               </div>
               <div class="form-actions">
@@ -492,19 +425,11 @@
           <div class="cal-grid" id="cal-grid"></div>
         </div>
 
-        <div class="panel your-task">
-          <h3>Your Task</h3>
-          <div class="your-task-item" id="your-task-item">
-            <div class="your-task-title">No active task</div>
-            <div class="your-task-sub">Add one on the Tasks page.</div>
-          </div>
+        <div class="panel rail-clients">
+          <h3>Active clients</h3>
+          <ul class="rail-client-list" id="rail-client-list"></ul>
         </div>
 
-        <div class="panel storage">
-          <h3>Storage</h3>
-          <div class="storage-bar"><div class="storage-fill" style="width: 34%"></div></div>
-          <div class="storage-text">34% of 100 GB used</div>
-        </div>
       </aside>
     </div>
   </main>
@@ -522,11 +447,11 @@
       <div class="modal-body">
         <ul class="reminder-list" id="reminder-list"></ul>
         <div class="reminder-add">
-          <input type="text" id="reminder-input" placeholder="Reminder text..." />
+          <input type="text" id="reminder-input" placeholder="Reminder" />
           <input type="time" id="reminder-time" />
           <button class="btn-primary" id="reminder-add-btn">Add</button>
         </div>
-        <div class="reminder-hint">Set a time to get an alarm when it hits.</div>
+        <div class="reminder-hint">Add a time to trigger an alarm.</div>
       </div>
     </div>
   </div>
@@ -534,7 +459,7 @@
   <!-- Alarm Overlay -->
   <div class="alarm-overlay" id="alarm-overlay">
     <div class="alarm-box">
-      <div class="alarm-icon">⏰</div>
+      <div class="alarm-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><polyline points="12 9 12 13 14.5 15.5"/><path d="M5 3 2 6"/><path d="M19 3l3 3"/></svg></div>
       <div class="alarm-title">Reminder</div>
       <div class="alarm-text" id="alarm-text"></div>
       <div class="alarm-time" id="alarm-time"></div>
