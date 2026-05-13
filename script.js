@@ -2864,8 +2864,7 @@ if (recapClose) {
 }
 
 renderWeeklyRecap();
-const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSpJgnUJHJRwcF41J6WkF5XkKl6D0exVMVH19OjmWTmuzSPR_
-  v87BD3_9CTsCo90-S5Grl8m1Sl9_HV/pub?output=csv';
+const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSpJgnUJHJRwcF41J6WkF5XkKl6D0exVMVH19OjmWTmuzSPR_v87BD3_9CTsCo90-S5Grl8m1Sl9_HV/pub?output=csv';
   
   async function loadLeads() {
     const response = await fetch(SHEET_CSV_URL);
