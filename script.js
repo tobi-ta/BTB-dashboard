@@ -2891,9 +2891,7 @@ const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSpJgnUJH
     if (!container) return;
     container.innerHTML = leads.map(lead => `
       <div class="lead-card">
-        <h3>${lead.name || 'Unknown'}</h3>
-        <p>${lead.email || ''}</p>
-        <span class="score">${lead.score || 'N/A'}</span>
+        ${Object.entries(lead).map(([key, value]) => `<p><strong>${key}:</strong> ${value || '-'}</p>`).join('')}
       </div>
     `).join('');
   }
