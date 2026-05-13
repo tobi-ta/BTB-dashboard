@@ -2864,3 +2864,36 @@ if (recapClose) {
 }
 
 renderWeeklyRecap();
+const SHEET_CSV_URL = https://docs.google.com/spreadsheets/d/e/2PACX-1vSpJgnUJHJRwcF41J6WkF5XkKl6D0exVMVH19OjmWTmuzSPR_v87BD3_9CTsCo90-S5Grl8m1Sl9_HV/pub?output=csv;
+  
+  async function loadLeads() {
+    const response = await fetch(SHEET_CSV_URL);
+    const csv = await response.text();
+    return parseCSV(csv);
+  }
+
+  function parseCSV(csv) {
+    const lines = csv.trim().split('\n');
+    const headers = lines[0].split(',').map(h => h.trim());
+    return lines.slice(1).map(line => {
+      const values = line.split(',');
+      return Object.fromEntries(headers.map((h, i) => [h, values[i]?.trim() || '']));
+    });
+  }
+
+  loadLeads().then(leads => {
+    console.log('Leads loaded:', leads);
+    renderLeads(leads);
+  });
+
+  function renderLeads(leads) {
+    const container = document.getElementById('leads-container');
+    if (!container) return;
+    container.innerHTML = leads.map(lead => `
+      <div class="lead-card">
+        <h3>${lead.name || 'Unknown'}</h3>
+        <p>${lead.email || ''}</p>
+        <span class="score">${lead.score || 'N/A'}</span>
+      </div>
+    `).join('');
+  }
