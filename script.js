@@ -2889,9 +2889,25 @@ const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSpJgnUJH
   function renderLeads(leads) {
     const container = document.getElementById('leads-container');
     if (!container) return;
-    container.innerHTML = leads.map(lead => `
-      <div class="lead-card">
-        ${Object.entries(lead).map(([key, value]) => `<p><strong>${key}:</strong> ${value || '-'}</p>`).join('')}
-      </div>
-    `).join('');
+    container.innerHTML = leads.map(lead => {
+      const name = `${lead['First Name'] || ''} ${lead['Last Name'] || ''}`.trim() || 'No name';
+      return `
+        <div class="lead-card">
+          <h3>${name}</h3>
+          <p><strong>Email:</strong> ${lead['Email'] || '-'}</p>
+          <p><strong>Phone:</strong> ${lead['Phone'] || '-'}</p>
+          <p><strong>Role:</strong> ${lead['Your role'] || '-'}</p>
+          <p><strong>Team size:</strong> ${lead['Team size'] || '-'}</p>
+          <p><strong>Industry:</strong> ${lead['Industry'] || '-'}</p>
+          <p><strong>Problem:</strong> ${lead['What problem are you trying to solve?'] || '-'}</p>
+          <p><strong>Urgency:</strong> ${lead['How urgent?'] || '-'}</p>
+          <p><strong>Budget:</strong> ${lead['Budget set aside?'] || '-'}</p>
+          <p><strong>Timeline:</strong> ${lead['Decision timeline'] || '-'}</p>
+          <p><strong>Source:</strong> ${lead['How did you hear about us?'] || '-'}</p>
+          <p><strong>Location:</strong> ${[lead['City'], lead['State'], lead['Country']].filter(Boolean).join(', ') || 
+  '-'}</p>
+        </div>
+      `;
+    }).join('');
   }
+
