@@ -2893,8 +2893,7 @@ async function loadLeads() {
     if (!container) return;
 
     if (leads.length === 0) {
-      container.innerHTML = '<div class="lead-card"><p>No leads yet. They will appear here once GHL sends
-  them.</p></div>';
+      container.innerHTML = '<div class="lead-card"><p>No leads yet. They will appear here once GHL sends them.</p></div>';
       return;
     }
 
