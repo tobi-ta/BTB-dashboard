@@ -2864,21 +2864,23 @@ if (recapClose) {
 }
 
 renderWeeklyRecap();
-const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSpJgnUJHJRwcF41J6WkF5XkKl6D0exVMVH19OjmWTmuzSPR_v87BD3_9CTsCo90-S5Grl8m1Sl9_HV/pub?output=csv';
-  
-  async function loadLeads() {
-    const response = await fetch(SHEET_CSV_URL);
-    const csv = await response.text();
-    return parseCSV(csv);
-  }
+async function loadLeads() {
+    try {
+      var { data, error } = await supabaseClient
+        .from('leads')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-  function parseCSV(csv) {
-    const lines = csv.trim().split('\n');
-    const headers = lines[0].split(',').map(h => h.trim());
-    return lines.slice(1).map(line => {
-      const values = line.split(',');
-      return Object.fromEntries(headers.map((h, i) => [h, values[i]?.trim() || '']));
-    });
+      if (error) {
+        console.warn('Supabase leads load failed:', error.message);
+        return [];
+      }
+
+      return data || [];
+    } catch (err) {
+      console.warn('Supabase leads error:', err);
+      return [];
+    }
   }
 
   loadLeads().then(leads => {
@@ -2889,25 +2891,34 @@ const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSpJgnUJH
   function renderLeads(leads) {
     const container = document.getElementById('leads-container');
     if (!container) return;
+
+    if (leads.length === 0) {
+      container.innerHTML = '<div class="lead-card"><p>No leads yet. They will appear here once GHL sends
+  them.</p></div>';
+      return;
+    }
+
     container.innerHTML = leads.map(lead => {
-      const name = `${lead['First Name'] || ''} ${lead['Last Name'] || ''}`.trim() || 'No name';
+      const name = `${lead.first_name || ''} ${lead.last_name || ''}`.trim() || 'No name';
+      const location = [lead.city, lead.state, lead.country].filter(Boolean).join(', ');
       return `
         <div class="lead-card">
           <h3>${name}</h3>
-          <p><strong>Email:</strong> ${lead['Email'] || '-'}</p>
-          <p><strong>Phone:</strong> ${lead['Phone'] || '-'}</p>
-          <p><strong>Role:</strong> ${lead['Your role'] || '-'}</p>
-          <p><strong>Team size:</strong> ${lead['Team size'] || '-'}</p>
-          <p><strong>Industry:</strong> ${lead['Industry'] || '-'}</p>
-          <p><strong>Problem:</strong> ${lead['What problem are you trying to solve?'] || '-'}</p>
-          <p><strong>Urgency:</strong> ${lead['How urgent?'] || '-'}</p>
-          <p><strong>Budget:</strong> ${lead['Budget set aside?'] || '-'}</p>
-          <p><strong>Timeline:</strong> ${lead['Decision timeline'] || '-'}</p>
-          <p><strong>Source:</strong> ${lead['How did you hear about us?'] || '-'}</p>
-          <p><strong>Location:</strong> ${[lead['City'], lead['State'], lead['Country']].filter(Boolean).join(', ') || 
-  '-'}</p>
+          <p><strong>Email:</strong> ${lead.email || '-'}</p>
+          <p><strong>Phone:</strong> ${lead.phone || '-'}</p>
+          <p><strong>Role:</strong> ${lead.role || '-'}</p>
+          <p><strong>Team size:</strong> ${lead.team_size || '-'}</p>
+          <p><strong>Industry:</strong> ${lead.industry || '-'}</p>
+          <p><strong>Problem:</strong> ${lead.problem || '-'}</p>
+          <p><strong>Urgency:</strong> ${lead.urgency || '-'}</p>
+          <p><strong>Budget:</strong> ${lead.budget || '-'}</p>
+          <p><strong>Timeline:</strong> ${lead.decision_timeline || '-'}</p>
+          <p><strong>Source:</strong> ${lead.source || '-'}</p>
+          <p><strong>Stage:</strong> ${lead.stage || '-'}</p>
+          <p><strong>Location:</strong> ${location || '-'}</p>
         </div>
       `;
     }).join('');
   }
+
 
