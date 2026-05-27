@@ -2864,60 +2864,229 @@ if (recapClose) {
 }
 
 renderWeeklyRecap();
+
+// ============================================
+// Leads page (two-way sync with GHL via Supabase)
+// ============================================
+
+// Replace each id with the real GHL stage UUID from your pipeline.
+// Get them from GHL: Settings -> Pipelines -> hover a stage -> URL contains the ID.
+// Or fetch once with: GET /opportunities/pipelines (use your PIT, copy ids back here).
+const GHL_PIPELINE_ID = 'WIL2HBe5ReETBdRnnwfX';
+const GHL_LOCATION_ID = '1DYXEfvDtxIGCiAc9OOP';
+
+const PIPELINE_STAGES = [
+  { id: 'c1717568-7aa4-4f60-9b89-beead7b0ea23', name: 'New Lead' },
+  { id: '133223f5-f21e-4a18-9011-352154a7e923', name: 'Contacted' },
+  { id: '322a153e-2211-4302-951b-f6a1a5432a8e', name: 'Qualified' },
+  { id: '736ce93d-0800-40f8-ac79-8d4c8d3c9448', name: 'Proposal Sent' },
+  { id: '3261c5ae-2a66-4fcf-86ed-94034266e32f', name: 'Negotiation' },
+  { id: 'b5009947-3028-4255-8dd4-a593325f3f91', name: 'Closed' },
+];
+
+let leadsCache = [];
+
 async function loadLeads() {
-    try {
-      var { data, error } = await supabaseClient
-        .from('leads')
-        .select('*')
-        .order('created_at', { ascending: false });
+  try {
+    const { data, error } = await supabaseClient
+      .from('leads')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-      if (error) {
-        console.warn('Supabase leads load failed:', error.message);
-        return [];
-      }
-
-      return data || [];
-    } catch (err) {
-      console.warn('Supabase leads error:', err);
+    if (error) {
+      console.warn('Supabase leads load failed:', error.message);
       return [];
     }
+
+    return data || [];
+  } catch (err) {
+    console.warn('Supabase leads error:', err);
+    return [];
+  }
+}
+
+function escapeAttr(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function renderLeads(leads) {
+  const container = document.getElementById('leads-container');
+  if (!container) return;
+
+  leadsCache = leads;
+
+  if (leads.length === 0) {
+    container.innerHTML = '<div class="lead-card"><p>No leads yet. They will appear here once GHL sends them.</p></div>';
+    return;
   }
 
-  loadLeads().then(leads => {
-    console.log('Leads loaded:', leads);
-    renderLeads(leads);
-  });
+  container.innerHTML = leads.map(lead => {
+    const oppId = escapeAttr(lead.opportunity_id || '');
+    const name = `${lead.first_name || ''} ${lead.last_name || ''}`.trim() || 'No name';
+    const location = [lead.city, lead.state, lead.country].filter(Boolean).join(', ');
 
-  function renderLeads(leads) {
-    const container = document.getElementById('leads-container');
-    if (!container) return;
+    const stageOptions = PIPELINE_STAGES.map(s =>
+      `<option value="${escapeAttr(s.id)}" ${s.id === lead.stage_id ? 'selected' : ''}>${escapeAttr(s.name)}</option>`
+    ).join('');
 
-    if (leads.length === 0) {
-      container.innerHTML = '<div class="lead-card"><p>No leads yet. They will appear here once GHL sends them.</p></div>';
-      return;
-    }
+    const editable = (label, field, value) => `
+      <p>
+        <strong>${label}:</strong>
+        <span
+          class="lead-field"
+          contenteditable="true"
+          spellcheck="false"
+          data-field="${field}"
+          data-opportunity-id="${oppId}"
+          data-original="${escapeAttr(value || '')}"
+        >${escapeAttr(value || '')}</span>
+      </p>
+    `;
 
-    container.innerHTML = leads.map(lead => {
-      const name = `${lead.first_name || ''} ${lead.last_name || ''}`.trim() || 'No name';
-      const location = [lead.city, lead.state, lead.country].filter(Boolean).join(', ');
-      return `
-        <div class="lead-card">
-          <h3>${name}</h3>
-          <p><strong>Email:</strong> ${lead.email || '-'}</p>
-          <p><strong>Phone:</strong> ${lead.phone || '-'}</p>
-          <p><strong>Role:</strong> ${lead.role || '-'}</p>
-          <p><strong>Team size:</strong> ${lead.team_size || '-'}</p>
-          <p><strong>Industry:</strong> ${lead.industry || '-'}</p>
-          <p><strong>Problem:</strong> ${lead.problem || '-'}</p>
-          <p><strong>Urgency:</strong> ${lead.urgency || '-'}</p>
-          <p><strong>Budget:</strong> ${lead.budget || '-'}</p>
-          <p><strong>Timeline:</strong> ${lead.decision_timeline || '-'}</p>
-          <p><strong>Source:</strong> ${lead.source || '-'}</p>
-          <p><strong>Stage:</strong> ${lead.stage || '-'}</p>
-          <p><strong>Location:</strong> ${location || '-'}</p>
+    return `
+      <div class="lead-card" data-opportunity-id="${oppId}">
+        <h3>${escapeAttr(name)}</h3>
+        <div class="lead-stage-row">
+          <label>Stage</label>
+          <select class="lead-stage-select" data-opportunity-id="${oppId}">
+            <option value="">— None —</option>
+            ${stageOptions}
+          </select>
+          <span class="lead-sync-indicator" data-opportunity-id="${oppId}"></span>
         </div>
-      `;
-    }).join('');
+        ${editable('Email', 'email', lead.email)}
+        ${editable('Phone', 'phone', lead.phone)}
+        ${editable('Role', 'role', lead.role)}
+        ${editable('Team size', 'team_size', lead.team_size)}
+        ${editable('Industry', 'industry', lead.industry)}
+        ${editable('Problem', 'problem', lead.problem)}
+        ${editable('Urgency', 'urgency', lead.urgency)}
+        ${editable('Budget', 'budget', lead.budget)}
+        ${editable('Timeline', 'decision_timeline', lead.decision_timeline)}
+        ${editable('Source', 'source', lead.source)}
+        <p><strong>Location:</strong> ${escapeAttr(location || '-')}</p>
+      </div>
+    `;
+  }).join('');
+}
+
+async function handleFieldChange(opportunityId, field, newValue) {
+  const indicator = document.querySelector(`.lead-sync-indicator[data-opportunity-id="${opportunityId}"]`);
+  if (indicator) {
+    indicator.textContent = 'Syncing…';
+    indicator.className = 'lead-sync-indicator syncing';
   }
 
+  const { error } = await supabaseClient
+    .from('leads')
+    .update({
+      [field]: newValue || null,
+      last_source: 'dashboard',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('opportunity_id', opportunityId);
 
+  if (indicator) {
+    if (error) {
+      console.warn(`Field "${field}" update failed:`, error.message);
+      indicator.textContent = 'Failed';
+      indicator.className = 'lead-sync-indicator error';
+    } else {
+      indicator.textContent = 'Synced';
+      indicator.className = 'lead-sync-indicator success';
+      setTimeout(() => {
+        indicator.textContent = '';
+        indicator.className = 'lead-sync-indicator';
+      }, 1800);
+    }
+  }
+}
+
+// Save editable lead fields on blur (only if value changed)
+document.addEventListener('blur', e => {
+  if (!e.target.classList?.contains('lead-field')) return;
+  const field = e.target.dataset.field;
+  const opportunityId = e.target.dataset.opportunityId;
+  const original = e.target.dataset.original || '';
+  const newValue = e.target.textContent.trim();
+  if (!opportunityId || !field) return;
+  if (newValue === original) return;
+  e.target.dataset.original = newValue;
+  handleFieldChange(opportunityId, field, newValue);
+}, true);
+
+// Enter blurs the field (so users don't accidentally add newlines)
+document.addEventListener('keydown', e => {
+  if (!e.target.classList?.contains('lead-field')) return;
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    e.target.blur();
+  }
+});
+
+async function handleStageChange(opportunityId, newStageId) {
+  const stage = PIPELINE_STAGES.find(s => s.id === newStageId);
+  const indicator = document.querySelector(`.lead-sync-indicator[data-opportunity-id="${opportunityId}"]`);
+  if (indicator) {
+    indicator.textContent = 'Syncing…';
+    indicator.className = 'lead-sync-indicator syncing';
+  }
+
+  const { error } = await supabaseClient
+    .from('leads')
+    .update({
+      stage_id: newStageId || null,
+      stage: stage ? stage.name : null,
+      last_source: 'dashboard',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('opportunity_id', opportunityId);
+
+  if (indicator) {
+    if (error) {
+      console.warn('Stage update failed:', error.message);
+      indicator.textContent = 'Failed';
+      indicator.className = 'lead-sync-indicator error';
+    } else {
+      indicator.textContent = 'Synced';
+      indicator.className = 'lead-sync-indicator success';
+      setTimeout(() => {
+        indicator.textContent = '';
+        indicator.className = 'lead-sync-indicator';
+      }, 1800);
+    }
+  }
+}
+
+document.addEventListener('change', e => {
+  if (!e.target.classList.contains('lead-stage-select')) return;
+  const opportunityId = e.target.dataset.opportunityId;
+  const newStageId = e.target.value;
+  if (!opportunityId) return;
+  handleStageChange(opportunityId, newStageId);
+});
+
+// Live updates from GHL: subscribe to row changes on leads
+function subscribeToLeadChanges() {
+  if (!supabaseClient.channel) return;
+  supabaseClient
+    .channel('public:leads')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, payload => {
+      const updated = payload.new;
+      if (!updated) return;
+      const idx = leadsCache.findIndex(l => l.opportunity_id === updated.opportunity_id);
+      if (idx >= 0) {
+        leadsCache[idx] = updated;
+      } else {
+        leadsCache.unshift(updated);
+      }
+      renderLeads(leadsCache);
+    })
+    .subscribe();
+}
+
+loadLeads().then(leads => {
+  console.log('Leads loaded:', leads);
+  renderLeads(leads);
+  subscribeToLeadChanges();
+});
